@@ -25,7 +25,10 @@ rule read =
   | '"' { read_string (Buffer.create 16) lexbuf }
   | '[' { LEFT_SQR_BRACKET }
   | ']' { RIGHT_SQR_BRACKET }
+  | '{' { LEFT_CURLY_BRACKET }
+  | '}' { RIGHT_CURLY_BRACKET }
   | ',' { COMMA }
+  | ':' { COLON }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }
 and read_string buf =
