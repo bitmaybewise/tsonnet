@@ -6,9 +6,10 @@ let parse (s: string) : expr =
   let ast = Parser.prog Lexer.read lexbuf in
   ast
 
-let print = function
-  | Int i -> Printf.printf "Int %d\n" i
-  | Float f -> Printf.printf "Float %f\n" f
-  | Null -> print_endline "Null"
-  | Bool b -> Printf.printf "Bool %b\n" b
-  | String s -> Printf.printf "\"%s\"\n" s
+let rec print = function
+  | Int i -> Printf.sprintf "%d" i
+  | Float f -> Printf.sprintf "%f" f
+  | Null -> Printf.sprintf "null"
+  | Bool b -> Printf.sprintf "%b" b
+  | String s -> Printf.sprintf "\"%s\"" s
+  | Array values -> Printf.sprintf "[%s]" (String.concat ", " (List.map print values))

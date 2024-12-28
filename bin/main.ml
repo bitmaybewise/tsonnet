@@ -8,7 +8,7 @@ let run_parser filename =
   let content = really_input_string input_channel (in_channel_length input_channel) in
   close_in input_channel;
   let ast = Tsonnet.parse content in
-  Tsonnet.print ast
+  print_endline (Tsonnet.print ast)
 
 let () =
   Arg.parse spec_list anonymous_fun usage_msg;
