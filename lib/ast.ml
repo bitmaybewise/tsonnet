@@ -4,3 +4,4 @@ type expr =
   | Null
   | Bool of bool
   | String of string
+  | Array of expr list

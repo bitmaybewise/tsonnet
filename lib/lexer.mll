@@ -23,6 +23,9 @@ rule read =
   | null { NULL }
   | bool { BOOL (bool_of_string (Lexing.lexeme lexbuf)) }
   | '"' { read_string (Buffer.create 16) lexbuf }
+  | '[' { LEFT_SQR_BRACKET }
+  | ']' { RIGHT_SQR_BRACKET }
+  | ',' { COMMA }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }
 and read_string buf =
