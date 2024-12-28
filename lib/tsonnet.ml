@@ -8,3 +8,4 @@ let parse (s: string) : expr =
 
 let print ast = match ast with
   | Int i -> Printf.printf "Int %d\n" i
+  | Null -> print_endline "null"

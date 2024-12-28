@@ -1,4 +1,5 @@
 %token <int> INT
+%token NULL
 %token EOF
 
 %start <Ast.expr> prog
@@ -11,4 +12,5 @@ prog:
 
 expr:
   | i = INT { Int i }
+  | NULL { Null }
   ;
