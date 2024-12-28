@@ -13,3 +13,10 @@ let rec print = function
   | Bool b -> Printf.sprintf "%b" b
   | String s -> Printf.sprintf "\"%s\"" s
   | Array values -> Printf.sprintf "[%s]" (String.concat ", " (List.map print values))
+  | Object attrs ->
+    let print_key_val = function
+      | (k, v) -> Printf.sprintf "\"%s\": %s" k (print v)
+    in
+    Printf.sprintf "{%s}" (
+      String.concat ", " (List.map print_key_val attrs)
+    )
