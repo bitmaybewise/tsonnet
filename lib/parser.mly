@@ -1,4 +1,5 @@
 %token <int> INT
+%token <float> FLOAT
 %token NULL
 %token EOF
 
@@ -12,5 +13,6 @@ prog:
 
 expr:
   | i = INT { Int i }
+  | f = FLOAT { Float f }
   | NULL { Null }
   ;
