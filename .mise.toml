@@ -1,2 +1,4 @@
 [tools]
 go-jsonnet = "0.20.0"
+ocaml = "5.1.1"
+opam = "2.2.0"

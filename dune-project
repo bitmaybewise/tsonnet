@@ -29,4 +29,6 @@
  (tags
   (jsonnet interpreter compiler)))
 
+(using menhir 3.0)
+
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
