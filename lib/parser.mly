@@ -1,6 +1,7 @@
 %token <int> INT
 %token <float> FLOAT
 %token NULL
+%token <bool> BOOL
 %token EOF
 
 %start <Ast.expr> prog
@@ -15,4 +16,5 @@ expr:
   | i = INT { Int i }
   | f = FLOAT { Float f }
   | NULL { Null }
+  | b = BOOL { Bool b }
   ;

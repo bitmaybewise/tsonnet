@@ -6,7 +6,8 @@ let parse (s: string) : expr =
   let ast = Parser.prog Lexer.read lexbuf in
   ast
 
-let print ast = match ast with
+let print = function
   | Int i -> Printf.printf "Int %d\n" i
   | Float f -> Printf.printf "Float %f\n" f
   | Null -> print_endline "Null"
+  | Bool b -> Printf.printf "Bool %b\n" b

@@ -11,6 +11,7 @@ let frac = '.' digit*
 let exp = ['e' 'E']['-' '+']? digit+
 let float = digit* frac? exp?
 let null = "null"
+let bool = "true" | "false"
 
 rule read =
   parse
@@ -19,4 +20,5 @@ rule read =
   | int { INT (int_of_string (Lexing.lexeme lexbuf)) }
   | float { FLOAT (float_of_string (Lexing.lexeme lexbuf)) }
   | null { NULL }
+  | bool { BOOL (bool_of_string (Lexing.lexeme lexbuf)) }
   | eof { EOF }
