@@ -3,3 +3,4 @@ type expr =
   | Float of float
   | Null
   | Bool of bool
+  | String of string

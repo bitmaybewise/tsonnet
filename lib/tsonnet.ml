@@ -11,3 +11,4 @@ let print = function
   | Float f -> Printf.printf "Float %f\n" f
   | Null -> print_endline "Null"
   | Bool b -> Printf.printf "Bool %b\n" b
+  | String s -> Printf.printf "\"%s\"\n" s
