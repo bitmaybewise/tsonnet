@@ -25,7 +25,11 @@
   (dune
    (>= 3.16.0))
   (menhir
-   (= 20240715)))
+   (= 20240715))
+  (alcotest
+   (and
+    :with-test
+    (>= 1.8.0))))
  (tags
   (jsonnet interpreter compiler)))
 

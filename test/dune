@@ -1,2 +1,5 @@
 (test
- (name test_tsonnet))
+ (name test_tsonnet)
+ (libraries tsonnet alcotest)
+ (deps
+  (source_tree ../samples)))
