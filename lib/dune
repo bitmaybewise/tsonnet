@@ -1,5 +1,7 @@
 (library
- (name tsonnet))
+ (name tsonnet)
+ (instrumentation
+  (backend bisect_ppx)))
 
 (menhir
  (modules parser))

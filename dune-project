@@ -29,7 +29,11 @@
   (alcotest
    (and
     :with-test
-    (>= 1.8.0))))
+    (>= 1.8.0)))
+  (bisect_ppx
+   (and
+    :with-test
+    (>= 2.8.3))))
  (tags
   (jsonnet interpreter compiler)))
 
