@@ -1,3 +1,7 @@
+%{
+  [@@@coverage exclude_file]
+%}
+
 %token <int> INT
 %token <float> FLOAT
 %token NULL
