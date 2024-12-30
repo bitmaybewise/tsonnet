@@ -23,7 +23,11 @@
   (ocaml
    (>= 5.1.1))
   (dune
-   (>= 3.16.0)))
+   (>= 3.16.0))
+  (alcotest
+   (and
+    :with-test
+    (>= 1.8.0))))
  (tags
   (jsonnet interpreter compiler)))
 

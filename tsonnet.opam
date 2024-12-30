@@ -12,6 +12,7 @@ bug-reports: "https://gitlab.com/bitmaybewise/tsonnet/-/issues"
 depends: [
   "ocaml" {>= "5.1.1"}
   "dune" {>= "3.16" & >= "3.16.0"}
+  "alcotest" {with-test & >= "1.8.0"}
   "odoc" {with-doc}
 ]
 build: [
