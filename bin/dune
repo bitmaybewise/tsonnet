@@ -2,3 +2,8 @@
  (public_name tsonnet)
  (name main)
  (libraries tsonnet))
+
+(cram
+ (deps
+  %{bin:tsonnet}
+  (source_tree ../samples)))
