@@ -31,7 +31,8 @@ let rec interpret (e: expr) : expr =
   | Null | Bool _ | String _ | Number _ | Array _ | Object _ -> e
   | BinOp (op, e1, e2) ->
     match (interpret e1, interpret e2) with
-    | (Number v1), (Number v2) -> interpret_bin_op op v1 v2
+    | String a, String b -> String (a^b)
+    | Number v1, Number v2 -> interpret_bin_op op v1 v2
     | _ -> failwith "invalid binary operation"
 
 let run (s: string) =
