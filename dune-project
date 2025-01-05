@@ -33,7 +33,9 @@
   (bisect_ppx
    (and
     :with-test
-    (>= 2.8.3))))
+    (>= 2.8.3)))
+  (yojson
+   (>= 2.2.2)))
  (tags
   (jsonnet interpreter compiler)))
 

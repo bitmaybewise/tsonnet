@@ -1,7 +1,8 @@
 (library
  (name tsonnet)
  (instrumentation
-  (backend bisect_ppx)))
+  (backend bisect_ppx))
+ (libraries yojson))
 
 (menhir
  (modules parser))

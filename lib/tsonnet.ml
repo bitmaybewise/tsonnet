@@ -6,24 +6,6 @@ let parse (s: string) : expr =
   let ast = Parser.prog Lexer.read lexbuf in
   ast
 
-let rec print = function
-  | Number n ->
-    (match n with
-    | Int i -> Printf.sprintf "%d" i
-    | Float f -> Printf.sprintf "%f" f)
-  | Null -> Printf.sprintf "null"
-  | Bool b -> Printf.sprintf "%b" b
-  | String s -> Printf.sprintf "\"%s\"" s
-  | Array values -> Printf.sprintf "[%s]" (String.concat ", " (List.map print values))
-  | Object attrs ->
-    let print_key_val = function
-      | (k, v) -> Printf.sprintf "\"%s\": %s" k (print v)
-    in
-    Printf.sprintf "{%s}" (
-      String.concat ", " (List.map print_key_val attrs)
-    )
-  | _ -> failwith "not implemented"
-
 let interpret_bin_op (op: bin_op) (n1: number) (n2: number) : expr =
   match op, n1, n2 with
   | Add, (Int a), (Int b) -> Number (Int (a + b))
@@ -52,7 +34,7 @@ let rec interpret (e: expr) : expr =
     | (Number v1), (Number v2) -> interpret_bin_op op v1 v2
     | _ -> failwith "invalid binary operation"
 
-let run (s: string) : expr =
+let run (s: string) =
   let ast = parse s in
   let evaluated_ast = interpret ast in
-  evaluated_ast
+  Json.expr_to_string evaluated_ast
