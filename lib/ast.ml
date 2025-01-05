@@ -4,9 +4,12 @@ type bin_op =
   | Multiply
   | Divide
 
-type expr =
+type number =
   | Int of int
   | Float of float
+
+type expr =
+  | Number of number
   | Null
   | Bool of bool
   | String of string

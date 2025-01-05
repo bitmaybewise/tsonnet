@@ -7,8 +7,10 @@ let parse (s: string) : expr =
   ast
 
 let rec print = function
-  | Int i -> Printf.sprintf "%d" i
-  | Float f -> Printf.sprintf "%f" f
+  | Number n ->
+    (match n with
+    | Int i -> Printf.sprintf "%d" i
+    | Float f -> Printf.sprintf "%f" f)
   | Null -> Printf.sprintf "null"
   | Bool b -> Printf.sprintf "%b" b
   | String s -> Printf.sprintf "\"%s\"" s
@@ -22,27 +24,33 @@ let rec print = function
     )
   | _ -> failwith "not implemented"
 
-let interpret_bin_op op n1 n2 =
-  let float_op =
-    match op with
-    | Add -> (+.)
-    | Subtract -> (-.)
-    | Multiply -> ( *. )
-    | Divide -> (/.)
-  in match (n1, n2) with
-  | Int i1, Int i2 -> Float (float_op (Float.of_int i1) (Float.of_int i2))
-  | Float f1, Float f2 -> Float (float_op f1 f2)
-  | Float f1, Int e2 -> Float (float_op f1 (Float.of_int e2))
-  | Int e1, Float f2 -> Float (float_op (Float.of_int e1) f2)
-  | _ -> failwith "invalid operation"
+let interpret_bin_op (op: bin_op) (n1: number) (n2: number) : expr =
+  match op, n1, n2 with
+  | Add, (Int a), (Int b) -> Number (Int (a + b))
+  | Add, (Float a), (Int b) -> Number (Float (a +. (float_of_int b)))
+  | Add, (Int a), (Float b) -> Number (Float ((float_of_int a) +. b))
+  | Add, (Float a), (Float b) -> Number (Float (a +. b))
+  | Subtract, (Int a), (Int b) -> Number (Int (a - b))
+  | Subtract, (Float a), (Int b) -> Number (Float (a -. (float_of_int b)))
+  | Subtract, (Int a), (Float b) -> Number (Float ((float_of_int a) -. b))
+  | Subtract, (Float a), (Float b) -> Number (Float (a -. b))
+  | Multiply, (Int a), (Int b) -> Number (Int (a * b))
+  | Multiply, (Float a), (Int b) -> Number (Float (a *. (float_of_int b)))
+  | Multiply, (Int a), (Float b) -> Number (Float ((float_of_int a) *. b))
+  | Multiply, (Float a), (Float b) -> Number (Float (a *. b))
+  | Divide, (Int a), (Int b) -> Number (Float ((float_of_int a) /. (float_of_int b)))
+  | Divide, (Float a), (Int b) -> Number (Float (a /. (float_of_int b)))
+  | Divide, (Int a), (Float b) -> Number (Float ((float_of_int a) /. b))
+  | Divide, (Float a), (Float b) -> Number (Float (a /. b))
 
-(** [interpret expr] interprets the intermediate AST [expr] into an AST. *)
+(** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret (e: expr) : expr =
   match e with
-  | Null | Bool _ | String _ | Int _ | Float _ | Array _ | Object _ -> e
+  | Null | Bool _ | String _ | Number _ | Array _ | Object _ -> e
   | BinOp (op, e1, e2) ->
-    let n1, n2 = interpret e1, interpret e2
-    in interpret_bin_op op n1 n2
+    match (interpret e1, interpret e2) with
+    | (Number v1), (Number v2) -> interpret_bin_op op v1 v2
+    | _ -> failwith "invalid binary operation"
 
 let run (s: string) : expr =
   let ast = parse s in

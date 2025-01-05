@@ -27,8 +27,8 @@ prog:
   ;
 
 expr:
-  | i = INT { Int i }
-  | f = FLOAT { Float f }
+  | i = INT { Number (Int i) }
+  | f = FLOAT { Number (Float f) }
   | NULL { Null }
   | b = BOOL { Bool b }
   | s = STRING { String s }
