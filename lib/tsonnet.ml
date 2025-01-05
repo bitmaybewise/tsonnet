@@ -29,9 +29,10 @@ let interpret_bin_op (op: bin_op) (n1: number) (n2: number) : expr =
 let rec interpret (e: expr) : expr =
   match e with
   | Null | Bool _ | String _ | Number _ | Array _ | Object _ -> e
+  | BinOp (Add, String a, String b) -> String (a^b)
   | BinOp (op, e1, e2) ->
     match (interpret e1, interpret e2) with
-    | (Number v1), (Number v2) -> interpret_bin_op op v1 v2
+    | Number v1, Number v2 -> interpret_bin_op op v1 v2
     | _ -> failwith "invalid binary operation"
 
 let run (s: string) =
