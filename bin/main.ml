@@ -7,8 +7,9 @@ let run_parser filename =
   let input_channel = open_in filename in
   let content = really_input_string input_channel (in_channel_length input_channel) in
   close_in input_channel;
-  let result = Tsonnet.run content in
-  print_endline result
+  match Tsonnet.run content with
+  | Ok stringified_json -> print_endline stringified_json
+  | Error err -> failwith err
 
 let () =
   Arg.parse spec_list anonymous_fun usage_msg;

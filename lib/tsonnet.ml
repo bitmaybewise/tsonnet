@@ -1,4 +1,7 @@
 open Ast
+open Result
+
+let (let*) = Result.bind
 
 (** [parse s] parses [s] into an AST. *)
 let parse (s: string) : expr =
@@ -26,16 +29,19 @@ let interpret_bin_op (op: bin_op) (n1: number) (n2: number) : expr =
   | Divide, (Float a), (Float b) -> Number (Float (a /. b))
 
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
-let rec interpret (e: expr) : expr =
+let rec interpret (e: expr) : (expr, string) result =
   match e with
-  | Null | Bool _ | String _ | Number _ | Array _ | Object _ -> e
+  | Null | Bool _ | String _ | Number _ | Array _ | Object _ -> ok e
+  | BinOp (Add, String a, String b) -> ok (String (a^b))
   | BinOp (op, e1, e2) ->
-    match (interpret e1, interpret e2) with
-    | String a, String b -> String (a^b)
-    | Number v1, Number v2 -> interpret_bin_op op v1 v2
-    | _ -> failwith "invalid binary operation"
+    let* e1' = interpret e1 in
+    let* e2' = interpret e2 in
+    match e1', e2' with
+    | String a, String b -> ok (String (a^b))
+    | Number v1, Number v2 -> ok (interpret_bin_op op v1 v2)
+    | _ -> error "invalid binary operation"
 
-let run (s: string) =
-  let ast = parse s in
-  let evaluated_ast = interpret ast in
-  Json.expr_to_string evaluated_ast
+let run (s: string) : (string, string) result =
+  let expr = parse s in
+  let* expr = interpret expr in
+  Json.expr_to_string expr
