@@ -13,3 +13,7 @@ coverage:
 clean:
 	dune clean
 	rm -rf _coverage/
+
+.PHONY: prepare-dev-setup
+prepare-dev-setup:
+	mise install
