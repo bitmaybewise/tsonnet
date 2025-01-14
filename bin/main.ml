@@ -9,7 +9,8 @@ let run_parser filename =
   close_in input_channel;
   match Tsonnet.run content with
   | Ok stringified_json -> print_endline stringified_json
-  | Error err -> failwith err
+  | Error err -> prerr_endline err; exit 1
+
 
 let () =
   Arg.parse spec_list anonymous_fun usage_msg;

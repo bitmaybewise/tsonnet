@@ -2,12 +2,13 @@ open Ast
 open Result
 
 let (let*) = Result.bind
+let (>>=) = Result.bind
 
 (** [parse s] parses [s] into an AST. *)
-let parse (s: string) : expr =
+let parse (s: string)  =
   let lexbuf = Lexing.from_string s in
-  let ast = Parser.prog Lexer.read lexbuf in
-  ast
+  try ok (Parser.prog Lexer.read lexbuf)
+  with | Lexer.SyntaxError err_msg -> error err_msg
 
 let interpret_bin_op (op: bin_op) (n1: number) (n2: number) : expr =
   match op, n1, n2 with
@@ -42,6 +43,4 @@ let rec interpret (e: expr) : (expr, string) result =
     | _ -> error "invalid binary operation"
 
 let run (s: string) : (string, string) result =
-  let expr = parse s in
-  let* expr = interpret expr in
-  Json.expr_to_string expr
+  parse s >>= interpret >>= Json.expr_to_string
