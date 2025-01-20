@@ -10,7 +10,7 @@ let parse (s: string)  =
   try ok (Parser.prog Lexer.read lexbuf)
   with | Lexer.SyntaxError err_msg -> error err_msg
 
-let interpret_bin_op (op: bin_op) (n1: number) (n2: number) : expr =
+let interpret_arith_op (op: bin_op) (n1: number) (n2: number) : expr =
   match op, n1, n2 with
   | Add, (Int a), (Int b) -> Number (Int (a + b))
   | Add, (Float a), (Int b) -> Number (Float (a +. (float_of_int b)))
@@ -29,17 +29,28 @@ let interpret_bin_op (op: bin_op) (n1: number) (n2: number) : expr =
   | Divide, (Int a), (Float b) -> Number (Float ((float_of_int a) /. b))
   | Divide, (Float a), (Float b) -> Number (Float (a /. b))
 
+let interpret_concat_op (e1 : expr) (e2 : expr) : (expr, string) result =
+  match e1, e2 with
+  | String s1, String s2 -> ok (String (s1^s2))
+  | String s1, expr2 ->
+    let* s2 = Json.expr_to_string expr2 in
+    ok (String (s1^s2))
+  | expr1, String s2 ->
+    let* s1 = Json.expr_to_string expr1 in
+    ok (String (s1^s2))
+  | _ -> error "invalid string concatenation operation"
+
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret (e: expr) : (expr, string) result =
   match e with
   | Null | Bool _ | String _ | Number _ | Array _ | Object _ | Ident _ -> ok e
-  | BinOp (Add, String a, String b) -> ok (String (a^b))
   | BinOp (op, e1, e2) ->
     let* e1' = interpret e1 in
     let* e2' = interpret e2 in
-    match e1', e2' with
-    | String a, String b -> ok (String (a^b))
-    | Number v1, Number v2 -> ok (interpret_bin_op op v1 v2)
+    match op, e1', e2' with
+    | Add, (String _ as expr1), (_ as expr2) | Add, (_ as expr1), (String _ as expr2) ->
+      interpret_concat_op expr1 expr2
+    | _, Number v1, Number v2 -> ok (interpret_arith_op op v1 v2)
     | _ -> error "invalid binary operation"
 
 let run (s: string) : (string, string) result =
