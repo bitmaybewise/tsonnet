@@ -16,6 +16,7 @@
 %token ADD SUBTRACT MULTIPLY DIVIDE
 %left ADD SUBTRACT
 %left MULTIPLY DIVIDE
+%token <string> ID
 %token EOF
 
 %start <Ast.expr> prog
@@ -32,6 +33,7 @@ expr:
   | NULL { Null }
   | b = BOOL { Bool b }
   | s = STRING { String s }
+  | id = ID { Ident id }
   | LEFT_SQR_BRACKET; values = list_fields; RIGHT_SQR_BRACKET { Array values }
   | LEFT_CURLY_BRACKET; attrs = obj_fields; RIGHT_CURLY_BRACKET { Object attrs }
   | e1 = expr; ADD; e2 = expr { BinOp (Add, e1, e2) }
@@ -44,7 +46,9 @@ list_fields:
   vl = separated_list(COMMA, expr) { vl };
 
 obj_field:
-  k = STRING; COLON; v = expr { (k, v) };
+  | k = STRING; COLON; v = expr { (k, v) }
+  | k = ID; COLON; v = expr { (k, v) }
+  ;
 
 obj_fields:
     obj = separated_list(COMMA, obj_field) { obj };

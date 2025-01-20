@@ -13,6 +13,7 @@ type expr =
   | Null
   | Bool of bool
   | String of string
+  | Ident of string
   | Array of expr list
   | Object of (string * expr) list
   | BinOp of bin_op * expr * expr

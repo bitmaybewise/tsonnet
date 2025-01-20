@@ -9,6 +9,7 @@ let rec expr_to_yojson : expr -> (Yojson.t, string) result = function
   | Null -> ok `Null
   | Bool b -> ok (`Bool b)
   | String s -> ok (`String s)
+  | Ident id -> ok (`String id)
   | Array values ->
     let expr_to_list expr' = to_list (expr_to_yojson expr') in
     let results = values |> List.map expr_to_list |> List.concat in

@@ -32,7 +32,7 @@ let interpret_bin_op (op: bin_op) (n1: number) (n2: number) : expr =
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret (e: expr) : (expr, string) result =
   match e with
-  | Null | Bool _ | String _ | Number _ | Array _ | Object _ -> ok e
+  | Null | Bool _ | String _ | Number _ | Array _ | Object _ | Ident _ -> ok e
   | BinOp (Add, String a, String b) -> ok (String (a^b))
   | BinOp (op, e1, e2) ->
     let* e1' = interpret e1 in

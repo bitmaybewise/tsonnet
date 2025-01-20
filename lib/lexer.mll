@@ -14,6 +14,8 @@ let exp = ['e' 'E']['-' '+']? digit+
 let float = '-'? digit* frac? exp?
 let null = "null"
 let bool = "true" | "false"
+let letter = ['a'-'z' 'A'-'Z']
+let id = (letter | '_') (letter | digit | '_')*
 
 rule read =
   parse
@@ -34,6 +36,7 @@ rule read =
   | '-' { SUBTRACT }
   | '*' { MULTIPLY }
   | '/' { DIVIDE }
+  | id { ID (Lexing.lexeme lexbuf) }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }
 and read_string buf =
