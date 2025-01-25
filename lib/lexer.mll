@@ -16,11 +16,14 @@ let null = "null"
 let bool = "true" | "false"
 let letter = ['a'-'z' 'A'-'Z']
 let id = (letter | '_') (letter | digit | '_')*
+let inline_comment = "//" [^ '\n']* newline
 
 rule read =
   parse
   | white { read lexbuf }
   | newline { new_line lexbuf; read lexbuf }
+  | inline_comment { read lexbuf }
+  | "/*" { block_comment lexbuf }
   | int { INT (int_of_string (Lexing.lexeme lexbuf)) }
   | float { FLOAT (float_of_string (Lexing.lexeme lexbuf)) }
   | null { NULL }
@@ -55,3 +58,9 @@ and read_string buf =
     }
   | _ { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
   | eof { raise (SyntaxError ("String is not terminated")) }
+and block_comment =
+  parse
+  | "*/" { read lexbuf }
+  | newline { block_comment lexbuf }
+  | _ { block_comment lexbuf }
+  | eof { raise (SyntaxError ("Unterminated block comment")) }
