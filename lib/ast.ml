@@ -4,6 +4,10 @@ type bin_op =
   | Multiply
   | Divide
 
+type unary_op =
+  | Plus
+  | Minus
+
 type number =
   | Int of int
   | Float of float
@@ -17,3 +21,4 @@ type expr =
   | Array of expr list
   | Object of (string * expr) list
   | BinOp of bin_op * expr * expr
+  | UnaryOp of unary_op * expr

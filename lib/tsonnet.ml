@@ -40,18 +40,29 @@ let interpret_concat_op (e1 : expr) (e2 : expr) : (expr, string) result =
     ok (String (s1^s2))
   | _ -> error "invalid string concatenation operation"
 
+let interpret_unary_op (op: unary_op) (n: number)  =
+    match op, n with
+    | Plus, _ -> n
+    | Minus, (Int i) -> Int (-i)
+    | Minus, (Float f) -> Float (-. f)
+
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret (e: expr) : (expr, string) result =
   match e with
   | Null | Bool _ | String _ | Number _ | Array _ | Object _ | Ident _ -> ok e
   | BinOp (op, e1, e2) ->
-    let* e1' = interpret e1 in
+    (let* e1' = interpret e1 in
     let* e2' = interpret e2 in
     match op, e1', e2' with
     | Add, (String _ as expr1), (_ as expr2) | Add, (_ as expr1), (String _ as expr2) ->
       interpret_concat_op expr1 expr2
     | _, Number v1, Number v2 -> ok (interpret_arith_op op v1 v2)
-    | _ -> error "invalid binary operation"
+    | _ -> error "invalid binary operation")
+  | UnaryOp (op, expr) ->
+    (let* e' = interpret expr in
+      match e' with
+      | Number v -> ok (Number (interpret_unary_op op v))
+      | _ -> error "invalid unary operation")
 
 let run (s: string) : (string, string) result =
   parse s >>= interpret >>= Json.expr_to_string
