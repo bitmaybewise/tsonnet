@@ -9,6 +9,8 @@
 %token <string> STRING
 %token LEFT_SQR_BRACKET
 %token RIGHT_SQR_BRACKET
+%token LEFT_PAREN
+%token RIGHT_PAREN
 %token COMMA
 %token LEFT_CURLY_BRACKET
 %token RIGHT_CURLY_BRACKET
@@ -34,6 +36,7 @@ expr:
   | b = BOOL { Bool b }
   | s = STRING { String s }
   | id = ID { Ident id }
+  | LEFT_PAREN; e = expr; RIGHT_PAREN { e }
   | LEFT_SQR_BRACKET; values = list_fields; RIGHT_SQR_BRACKET { Array values }
   | LEFT_CURLY_BRACKET; attrs = obj_fields; RIGHT_CURLY_BRACKET { Object attrs }
   | e1 = expr; PLUS; e2 = expr { BinOp (Add, e1, e2) }

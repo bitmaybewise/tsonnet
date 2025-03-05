@@ -33,6 +33,8 @@ rule read =
   | ']' { RIGHT_SQR_BRACKET }
   | '{' { LEFT_CURLY_BRACKET }
   | '}' { RIGHT_CURLY_BRACKET }
+  | '(' { LEFT_PAREN }
+  | ')' { RIGHT_PAREN }
   | ',' { COMMA }
   | ':' { COLON }
   | '+' { PLUS }

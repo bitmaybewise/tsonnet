@@ -17,4 +17,4 @@ Using the Tsonnet program:
   }
 
   $ tsonnet ../samples/binary_operations.jsonnet
-  44.7
+  42.3
