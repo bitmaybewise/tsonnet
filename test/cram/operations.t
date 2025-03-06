@@ -6,3 +6,9 @@
 
   $ tsonnet ../../samples/operation_precedence.jsonnet
   2.119565217391304
+
+  $ tsonnet ../../samples/not_true.jsonnet
+  false
+
+  $ tsonnet ../../samples/not_false.jsonnet
+  true

@@ -41,6 +41,7 @@ rule read =
   | '-' { MINUS }
   | '*' { MULTIPLY }
   | '/' { DIVIDE }
+  | '!' { NOT }
   | id { ID (Lexing.lexeme lexbuf) }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }

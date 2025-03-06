@@ -19,6 +19,7 @@
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
 %token <string> ID
+%token NOT
 %token EOF
 
 %start <Ast.expr> prog
@@ -45,6 +46,7 @@ expr:
   | e1 = expr; DIVIDE; e2 = expr { BinOp (Divide, e1, e2) }
   | PLUS; e = expr; { UnaryOp (Plus, e) }
   | MINUS; e = expr; { UnaryOp (Minus, e) }
+  | NOT; e = expr; { UnaryOp (Not, e) }
   ;
 
 list_fields:

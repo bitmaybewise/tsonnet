@@ -7,6 +7,7 @@ type bin_op =
 type unary_op =
   | Plus
   | Minus
+  | Not
 
 type number =
   | Int of int
