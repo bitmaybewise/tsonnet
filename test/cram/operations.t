@@ -12,3 +12,6 @@
 
   $ tsonnet ../../samples/not_false.jsonnet
   true
+
+  $ tsonnet ../../samples/bitwise.jsonnet
+  -2

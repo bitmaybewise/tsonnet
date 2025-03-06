@@ -42,6 +42,7 @@ rule read =
   | '*' { MULTIPLY }
   | '/' { DIVIDE }
   | '!' { NOT }
+  | '~' { BITWISE_NOT }
   | id { ID (Lexing.lexeme lexbuf) }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }

@@ -19,7 +19,8 @@
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
 %token <string> ID
-%token NOT
+%token NOT BITWISE_NOT
+%left NOT BITWISE_NOT
 %token EOF
 
 %start <Ast.expr> prog
@@ -47,6 +48,7 @@ expr:
   | PLUS; e = expr; { UnaryOp (Plus, e) }
   | MINUS; e = expr; { UnaryOp (Minus, e) }
   | NOT; e = expr; { UnaryOp (Not, e) }
+  | BITWISE_NOT; e = expr; { UnaryOp (BitwiseNot, e) }
   ;
 
 list_fields:

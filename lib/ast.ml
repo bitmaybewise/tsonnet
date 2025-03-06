@@ -8,6 +8,7 @@ type unary_op =
   | Plus
   | Minus
   | Not
+  | BitwiseNot
 
 type number =
   | Int of int

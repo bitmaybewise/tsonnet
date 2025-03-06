@@ -46,6 +46,7 @@ let interpret_unary_op (op: unary_op) (evaluated_expr: expr)  =
     | Minus, Number (Int i) -> ok (Number (Int (-i)))
     | Minus, Number (Float f) -> ok (Number (Float (-. f)))
     | Not, (Bool b) -> ok (Bool (not b))
+    | BitwiseNot, Number (Int i) -> ok (Number (Int (lnot i)))
     | _ -> error "invalid unary operation"
 
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
