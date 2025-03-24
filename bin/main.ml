@@ -4,10 +4,7 @@ let anonymous_fun filename = input_files := filename :: !input_files
 let spec_list = []
 
 let run_parser filename =
-  let input_channel = open_in filename in
-  let content = really_input_string input_channel (in_channel_length input_channel) in
-  close_in input_channel;
-  match Tsonnet.run content with
+  match Tsonnet.run filename with
   | Ok stringified_json -> print_endline stringified_json
   | Error err -> prerr_endline err; exit 1
 

@@ -1,3 +1,3 @@
   $ tsonnet ../../samples/errors/malformed_string.jsonnet
-  String is not terminated
+  ../../samples/errors/malformed_string.jsonnet:1:22 String is not terminated
   [1]

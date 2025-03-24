@@ -65,6 +65,6 @@ and read_string buf =
 and block_comment =
   parse
   | "*/" { read lexbuf }
-  | newline { block_comment lexbuf }
+  | newline { new_line lexbuf; block_comment lexbuf }
   | _ { block_comment lexbuf }
   | eof { raise (SyntaxError ("Unterminated block comment")) }

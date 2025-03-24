@@ -4,11 +4,24 @@ open Result
 let (let*) = Result.bind
 let (>>=) = Result.bind
 
+let format_error err (lexbuf: Lexing.lexbuf) =
+  Printf.sprintf "%s:%d:%d %s"
+    lexbuf.lex_curr_p.pos_fname
+    lexbuf.lex_curr_p.pos_lnum
+    (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol)
+    err
+
 (** [parse s] parses [s] into an AST. *)
-let parse (s: string)  =
-  let lexbuf = Lexing.from_string s in
-  try ok (Parser.prog Lexer.read lexbuf)
-  with | Lexer.SyntaxError err_msg -> error err_msg
+let parse (filename: string) : (expr, string) result  =
+  let input = open_in filename in
+  let lexbuf = Lexing.from_channel input in
+  Lexing.set_filename lexbuf filename;
+  let result =
+    try ok (Parser.prog Lexer.read lexbuf)
+    with | Lexer.SyntaxError err -> error (format_error err lexbuf)
+  in
+  close_in input;
+  result
 
 let interpret_arith_op (op: bin_op) (n1: number) (n2: number) : expr =
   match op, n1, n2 with
@@ -63,5 +76,5 @@ let rec interpret (e: expr) : (expr, string) result =
     | _ -> error "invalid binary operation")
   | UnaryOp (op, expr) -> interpret expr >>= interpret_unary_op op
 
-let run (s: string) : (string, string) result =
-  parse s >>= interpret >>= Json.expr_to_string
+let run (filename: string) : (string, string) result =
+  parse filename >>= interpret >>= Json.expr_to_string

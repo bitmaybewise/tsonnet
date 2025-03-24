@@ -2,5 +2,5 @@
   "this is a string"
 
   $ tsonnet ../../samples/comments/unterminated_block.jsonnet
-  Unterminated block comment
+  ../../samples/comments/unterminated_block.jsonnet:12:1 Unterminated block comment
   [1]
