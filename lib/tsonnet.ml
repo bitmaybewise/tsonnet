@@ -4,12 +4,48 @@ open Result
 let (let*) = Result.bind
 let (>>=) = Result.bind
 
-let format_error err (lexbuf: Lexing.lexbuf) =
-  Printf.sprintf "%s:%d:%d %s"
+let enumerate_file_content filename =
+  let channel = open_in filename in
+  try
+    let rec read_lines acc line_num =
+      try
+        let line = input_line channel in
+        let numbered_line = Printf.sprintf "%d %s" line_num line in
+        read_lines (numbered_line :: acc) (line_num + 1)
+      with End_of_file -> (List.rev acc, line_num)
+    in
+    let numbered_lines, line_num = read_lines [] 1 in
+    close_in channel;
+    ok (String.concat "\n" numbered_lines, line_num)
+  with e ->
+    close_in_noerr channel;
+    error (Printexc.to_string e)
+
+let plot_caret column_size =
+  if column_size <= 0 then
+    ""
+  else
+    let buffer = Buffer.create column_size in
+    (* Fill with spaces except the last position *)
+    for _ = 1 to column_size - 1 do
+      Buffer.add_char buffer ' '
+    done;
+    (* Add caret at the end *)
+    Buffer.add_char buffer '^';
+    Buffer.contents buffer
+
+let format_error (err: string) (lexbuf: Lexing.lexbuf) : (string, string) result =
+  let* content, n = enumerate_file_content lexbuf.lex_curr_p.pos_fname in
+  let pos_cnum = lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol in
+  let carot_padding = String.length (string_of_int n) + 1 in
+  ok (Printf.sprintf "%s:%d:%d %s\n\n%s\n %*s"
     lexbuf.lex_curr_p.pos_fname
     lexbuf.lex_curr_p.pos_lnum
-    (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol)
+    pos_cnum
     err
+    content
+    carot_padding (plot_caret pos_cnum)
+  )
 
 (** [parse s] parses [s] into an AST. *)
 let parse (filename: string) : (expr, string) result  =
@@ -18,7 +54,7 @@ let parse (filename: string) : (expr, string) result  =
   Lexing.set_filename lexbuf filename;
   let result =
     try ok (Parser.prog Lexer.read lexbuf)
-    with | Lexer.SyntaxError err -> error (format_error err lexbuf)
+    with | Lexer.SyntaxError err -> (format_error err lexbuf) >>= error
   in
   close_in input;
   result
