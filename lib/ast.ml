@@ -15,9 +15,9 @@ type number =
   | Float of float
 
 type expr =
-  | Number of number
+  | Number of Lexing.position * number
   | Null
-  | Bool of bool
+  | Bool of Lexing.position * bool
   | String of string
   | Ident of string
   | Array of expr list

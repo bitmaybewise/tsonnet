@@ -2,12 +2,12 @@ open Ast
 open Result
 
 let rec expr_to_yojson : expr -> (Yojson.t, string) result = function
-  | Number n ->
+  | Number (_, n) ->
     ok (match n with
     | Int i -> `Int i
     | Float f -> `Float f)
   | Null -> ok `Null
-  | Bool b -> ok (`Bool b)
+  | Bool (_, b) -> ok (`Bool b)
   | String s -> ok (`String s)
   | Ident id -> ok (`String id)
   | Array values ->

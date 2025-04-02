@@ -32,10 +32,10 @@ prog:
   ;
 
 expr:
-  | i = INT { Number (Int i) }
-  | f = FLOAT { Number (Float f) }
+  | i = INT { Number ($startpos, Int i) }
+  | f = FLOAT { Number ($startpos, Float f) }
   | NULL { Null }
-  | b = BOOL { Bool b }
+  | b = BOOL { Bool ($startpos, b) }
   | s = STRING { String s }
   | id = ID { Ident id }
   | LEFT_PAREN; e = expr; RIGHT_PAREN { e }
