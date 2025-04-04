@@ -14,13 +14,18 @@ type number =
   | Int of int
   | Float of float
 
-type expr =
-  | Number of Lexing.position * number
+type value =
+  | Number of number
   | Null
-  | Bool of Lexing.position * bool
+  | Bool of bool
   | String of string
   | Ident of string
-  | Array of expr list
-  | Object of (string * expr) list
-  | BinOp of bin_op * expr * expr
-  | UnaryOp of unary_op * expr
+  | Array of value list
+  | Object of (string * value) list
+  | BinOp of bin_op * value * value
+  | UnaryOp of unary_op * value
+
+type expr = {
+  startpos: Lexing.position;
+  value: value;
+}

@@ -2,7 +2,7 @@
   "this is a string"
 
   $ tsonnet ../../samples/comments/unterminated_block.jsonnet
-  ../../samples/comments/unterminated_block.jsonnet:12:2 Unterminated block comment
+  ../../samples/comments/unterminated_block.jsonnet:12:1 Unterminated block comment
   
   1: "this is code" /*
   2: This is a block comment
