@@ -25,7 +25,17 @@ type value =
   | BinOp of bin_op * value * value
   | UnaryOp of unary_op * value
 
-type expr = {
+type position = {
   startpos: Lexing.position;
+  endpos: Lexing.position;
+}
+
+type expr = {
+  position: position;
   value: value;
 }
+
+let pos_from_lexbuf (lexbuf : Lexing.lexbuf) : position =
+  { startpos = lexbuf.lex_curr_p;
+    endpos = lexbuf.lex_curr_p;
+  };

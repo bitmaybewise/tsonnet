@@ -4,46 +4,6 @@ open Result
 let (let*) = Result.bind
 let (>>=) = Result.bind
 
-let enumerate_file_content filename =
-  let channel = open_in filename in
-  try
-    let rec read_lines acc line_num =
-      try
-        let line = input_line channel in
-        let numbered_line = Printf.sprintf "%d: %s" line_num line in
-        read_lines (numbered_line :: acc) (line_num + 1)
-      with End_of_file -> (List.rev acc, line_num)
-    in
-    let numbered_lines, line_num = read_lines [] 1 in
-    close_in channel;
-    ok (String.concat "\n" numbered_lines, line_num)
-  with e ->
-    close_in_noerr channel;
-    error (Printexc.to_string e)
-
-let plot_caret column_size =
-  let buffer = Buffer.create column_size in
-  (* Fill with spaces except the last position *)
-  for _ = 0 to column_size do
-    Buffer.add_char buffer ' '
-  done;
-  (* Add caret at the end *)
-  Buffer.add_char buffer '^';
-  Buffer.contents buffer
-
-let format_error (err: string) (lex_curr_p: Lexing.position) : (string, string) result =
-  let* content, n = enumerate_file_content lex_curr_p.pos_fname in
-  let curr_col = lex_curr_p.pos_cnum - lex_curr_p.pos_bol in
-  let carot_padding = String.length (string_of_int n) + 3 in (* e.g. 14 lines = length 1 + 1 colon + 1 space *)
-  ok (Printf.sprintf "%s:%d:%d %s\n\n%s\n%*s"
-    lex_curr_p.pos_fname
-    lex_curr_p.pos_lnum
-    curr_col
-    err
-    content
-    carot_padding (plot_caret curr_col)
-  )
-
 (** [parse s] parses [s] into an AST. *)
 let parse (filename: string) : ((expr * Lexing.lexbuf), string) result  =
   let input = open_in filename in
@@ -51,7 +11,7 @@ let parse (filename: string) : ((expr * Lexing.lexbuf), string) result  =
   Lexing.set_filename lexbuf filename;
   let result =
     try ok (Parser.prog Lexer.read lexbuf, lexbuf)
-    with | Lexer.SyntaxError err -> (format_error err lexbuf.lex_curr_p) >>= error
+    with | Lexer.SyntaxError err -> (Error.trace err (Ast.pos_from_lexbuf lexbuf)) >>= error
   in
   close_in input;
   result
@@ -112,8 +72,10 @@ let rec interpret (expr, lexbuf: expr * Lexing.lexbuf) : (expr, string) result =
       in interpret_concat_op expr1 expr2
     | _, Number v1, Number v2 ->
       let value = interpret_arith_op op v1 v2
-      in ok ({expr with value = value })
-    | _ -> format_error "invalid binary operation" expr.startpos >>= error)
+      in ok ({expr with value = value})
+    | _ ->
+      Error.trace "invalid binary operation" expr.position >>= error
+    )
   | UnaryOp (op, value) ->
     interpret ({expr with value = value}, lexbuf) >>= interpret_unary_op op
 

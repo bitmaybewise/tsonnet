@@ -2,8 +2,11 @@
   [@@@coverage exclude_file]
   open Ast
 
-  let with_pos startpos value : Ast.expr = {
-    startpos = startpos;
+  let with_pos startpos endpos value : Ast.expr = {
+    position = {
+      startpos = startpos;
+      endpos = endpos;
+    };
     value = value
   }
 %}
@@ -38,23 +41,23 @@ prog:
   ;
 
 expr:
-  | i = INT { with_pos $startpos (Number (Int i)) }
-  | f = FLOAT { with_pos $startpos (Number (Float f)) }
-  | NULL { with_pos $startpos Null }
-  | b = BOOL { with_pos $startpos (Bool b) }
-  | s = STRING { with_pos $startpos (String s) }
-  | id = ID { with_pos $startpos (Ident id) }
-  | LEFT_PAREN; e = expr; RIGHT_PAREN { with_pos $startpos e.value }
-  | LEFT_SQR_BRACKET; values = list_fields; RIGHT_SQR_BRACKET { with_pos $startpos (Array values) }
-  | LEFT_CURLY_BRACKET; attrs = obj_fields; RIGHT_CURLY_BRACKET { with_pos $startpos (Object attrs) }
-  | e1 = expr; PLUS; e2 = expr { with_pos $startpos (BinOp (Add, e1.value, e2.value)) }
-  | e1 = expr; MINUS; e2 = expr { with_pos $startpos (BinOp (Subtract, e1.value, e2.value)) }
-  | e1 = expr; MULTIPLY; e2 = expr { with_pos $startpos (BinOp (Multiply, e1.value, e2.value)) }
-  | e1 = expr; DIVIDE; e2 = expr { with_pos $startpos (BinOp (Divide, e1.value, e2.value)) }
-  | PLUS; e = expr; { with_pos $startpos (UnaryOp (Plus, e.value)) }
-  | MINUS; e = expr; { with_pos $startpos (UnaryOp (Minus, e.value)) }
-  | NOT; e = expr; { with_pos $startpos (UnaryOp (Not, e.value)) }
-  | BITWISE_NOT; e = expr; { with_pos $startpos (UnaryOp (BitwiseNot, e.value)) }
+  | i = INT { with_pos $startpos $endpos (Number (Int i)) }
+  | f = FLOAT { with_pos $startpos $endpos (Number (Float f)) }
+  | NULL { with_pos $startpos $endpos Null }
+  | b = BOOL { with_pos $startpos $endpos (Bool b) }
+  | s = STRING { with_pos $startpos $endpos (String s) }
+  | id = ID { with_pos $startpos $endpos (Ident id) }
+  | LEFT_PAREN; e = expr; RIGHT_PAREN { with_pos $startpos $endpos e.value }
+  | LEFT_SQR_BRACKET; values = list_fields; RIGHT_SQR_BRACKET { with_pos $startpos $endpos (Array values) }
+  | LEFT_CURLY_BRACKET; attrs = obj_fields; RIGHT_CURLY_BRACKET { with_pos $startpos $endpos (Object attrs) }
+  | e1 = expr; PLUS; e2 = expr { with_pos $startpos $endpos (BinOp (Add, e1.value, e2.value)) }
+  | e1 = expr; MINUS; e2 = expr { with_pos $startpos $endpos (BinOp (Subtract, e1.value, e2.value)) }
+  | e1 = expr; MULTIPLY; e2 = expr { with_pos $startpos $endpos (BinOp (Multiply, e1.value, e2.value)) }
+  | e1 = expr; DIVIDE; e2 = expr { with_pos $startpos $endpos (BinOp (Divide, e1.value, e2.value)) }
+  | PLUS; e = expr; { with_pos $startpos $endpos (UnaryOp (Plus, e.value)) }
+  | MINUS; e = expr; { with_pos $startpos $endpos (UnaryOp (Minus, e.value)) }
+  | NOT; e = expr; { with_pos $startpos $endpos (UnaryOp (Not, e.value)) }
+  | BITWISE_NOT; e = expr; { with_pos $startpos $endpos (UnaryOp (BitwiseNot, e.value)) }
   ;
 
 list_value:
