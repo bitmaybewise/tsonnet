@@ -5,12 +5,12 @@ let (let*) = Result.bind
 let (>>=) = Result.bind
 
 (** [parse s] parses [s] into an AST. *)
-let parse (filename: string) : ((expr * Lexing.lexbuf), string) result  =
+let parse (filename: string) : (expr, string) result  =
   let input = open_in filename in
   let lexbuf = Lexing.from_channel input in
   Lexing.set_filename lexbuf filename;
   let result =
-    try ok (Parser.prog Lexer.read lexbuf, lexbuf)
+    try ok (Parser.prog Lexer.read lexbuf)
     with | Lexer.SyntaxError err -> (Error.trace err (Ast.pos_from_lexbuf lexbuf)) >>= error
   in
   close_in input;
@@ -59,12 +59,12 @@ let interpret_unary_op (op: unary_op) (evaluated_expr: expr)  =
     in ok { evaluated_expr with value = new_value }
 
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
-let rec interpret (expr, lexbuf: expr * Lexing.lexbuf) : (expr, string) result =
+let rec interpret expr : (expr, string) result =
   match expr.value with
   | Null | Bool _ | String _ | Number _ | Array _ | Object _ | Ident _ -> ok expr
   | BinOp (op, e1, e2) ->
-    (let* e1' = interpret ({expr with value = e1}, lexbuf) in
-    let* e2' = interpret ({expr with value = e2}, lexbuf) in
+    (let* e1' = interpret ({expr with value = e1}) in
+    let* e2' = interpret ({expr with value = e2}) in
     match op, e1'.value, e2'.value with
     | Add, (String _ as v1), (_ as v2) | Add, (_ as v1), (String _ as v2) ->
       let expr1 = { expr with value = v1 }
@@ -77,7 +77,7 @@ let rec interpret (expr, lexbuf: expr * Lexing.lexbuf) : (expr, string) result =
       Error.trace "invalid binary operation" expr.position >>= error
     )
   | UnaryOp (op, value) ->
-    interpret ({expr with value = value}, lexbuf) >>= interpret_unary_op op
+    interpret ({expr with value = value}) >>= interpret_unary_op op
 
 let run (filename: string) : (string, string) result =
   parse filename >>= interpret >>= Json.expr_to_string
