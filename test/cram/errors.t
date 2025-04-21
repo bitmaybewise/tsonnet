@@ -1,3 +1,10 @@
+  $ tsonnet ../../samples/errors/unterminated_block.jsonnet
+  ../../samples/errors/unterminated_block.jsonnet:12:1 Unterminated block comment
+  
+  12: ?
+      ^
+  [1]
+
   $ tsonnet ../../samples/errors/malformed_string.jsonnet
   ../../samples/errors/malformed_string.jsonnet:1:22 String is not terminated
   
