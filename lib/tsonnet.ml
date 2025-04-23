@@ -11,7 +11,9 @@ let parse (filename: string) : (expr, string) result  =
   Lexing.set_filename lexbuf filename;
   let result =
     try ok (Parser.prog Lexer.read lexbuf)
-    with | Lexer.SyntaxError err -> (Error.trace err (Ast.pos_from_lexbuf lexbuf)) >>= error
+    with
+    | Lexer.SyntaxError err -> (Error.trace err (Ast.pos_from_lexbuf lexbuf)) >>= error
+    | Parser.Error -> (Error.trace "Parser Error" (Ast.pos_from_lexbuf lexbuf)) >>= error
   in
   close_in input;
   result
