@@ -5,7 +5,7 @@ let (let*) = Result.bind
 let (>>=) = Result.bind
 
 (** [parse s] parses [s] into an AST. *)
-let parse (filename: string) : (expr, string) result  =
+let parse (filename: string) =
   let input = open_in filename in
   let lexbuf = Lexing.from_channel input in
   Lexing.set_filename lexbuf filename;
@@ -61,25 +61,50 @@ let interpret_unary_op (op: unary_op) (evaluated_expr: expr)  =
     in ok { evaluated_expr with value = new_value }
 
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
-let rec interpret expr : (expr, string) result =
+let rec interpret env expr =
   match expr.value with
-  | Null | Bool _ | String _ | Number _ | Array _ | Object _ | Ident _ -> ok expr
+  | Null | Bool _ | String _ | Number _ | Array _ | Object _ -> ok (env, expr)
+  | Ident varname ->
+    (match Env.Map.find_opt varname env with
+    | Some value ->
+      ok (env, {Ast.dummy_expr with value = value})
+    | None -> Error.trace ("Undefined variable: " ^ varname) expr.position >>= error)
   | BinOp (op, e1, e2) ->
-    (let* e1' = interpret ({expr with value = e1}) in
-    let* e2' = interpret ({expr with value = e2}) in
+    (let* (env1, e1') = interpret env ({expr with value = e1}) in
+    let* (env2, e2') = interpret env1 ({expr with value = e2}) in
     match op, e1'.value, e2'.value with
     | Add, (String _ as v1), (_ as v2) | Add, (_ as v1), (String _ as v2) ->
-      let expr1 = { expr with value = v1 }
+      (let expr1 = { expr with value = v1 }
       in let expr2 = { expr with value = v2 }
-      in interpret_concat_op expr1 expr2
+      in interpret_concat_op expr1 expr2 >>= fun expr' -> ok (env, expr'))
     | _, Number v1, Number v2 ->
-      let value = interpret_arith_op op v1 v2
-      in ok ({expr with value = value})
+      (let value = interpret_arith_op op v1 v2
+      in ok (env2, {expr with value = value}))
     | _ ->
       Error.trace "invalid binary operation" expr.position >>= error
     )
   | UnaryOp (op, value) ->
-    interpret ({expr with value = value}) >>= interpret_unary_op op
+    (interpret env ({expr with value = value})
+    >>= fun (env, expr') -> interpret_unary_op op expr'
+    >>= fun expr' -> ok (env, expr'))
+  | Local (varname, value) ->
+    let env' = Env.Map.add varname value env in
+    ok (env', Ast.dummy_expr)
+  | _ -> error "Oops"
+
+let rec reduce_ast env prog =
+  match prog with
+  | Expr expr ->
+    interpret env expr
+  | Sequence exprs ->
+    match exprs with
+    | [] ->
+      ok (env, {position=Ast.dummy_pos; value=Unit;})
+    | [expr] ->
+    interpret env expr
+    | expr :: exprs ->
+      interpret env expr >>= fun (env', _) -> reduce_ast env' (Sequence exprs)
 
 let run (filename: string) : (string, string) result =
-  parse filename >>= interpret >>= Json.expr_to_string
+  let env = Env.Map.empty in
+  parse filename >>= reduce_ast env >>= fun (_env, expr) -> Json.expr_to_string expr

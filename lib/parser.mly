@@ -30,14 +30,19 @@
 %token <string> ID
 %token NOT BITWISE_NOT
 %left NOT BITWISE_NOT
+%token SEMICOLON
+%token LOCAL
+%token ASSIGN
+%right ASSIGN
 %token EOF
 
-%start <Ast.expr> prog
+%start <Ast.prog> prog
 
 %%
 
 prog:
-  | e = expr; EOF { e }
+  | e = expr; EOF { Expr e }
+  | e = expr; SEMICOLON; seq = expr_seq; EOF { Sequence (e :: seq) }
   ;
 
 expr:
@@ -58,7 +63,11 @@ expr:
   | MINUS; e = expr; { with_pos $startpos $endpos (UnaryOp (Minus, e.value)) }
   | NOT; e = expr; { with_pos $startpos $endpos (UnaryOp (Not, e.value)) }
   | BITWISE_NOT; e = expr; { with_pos $startpos $endpos (UnaryOp (BitwiseNot, e.value)) }
+  | LOCAL; varname = ID; ASSIGN; e = expr; { with_pos $startpos $endpos (Local (varname, e.value)) }
   ;
+
+expr_seq:
+  exprs = separated_list(SEMICOLON, expr) { exprs };
 
 list_value:
   e = expr { e.value };

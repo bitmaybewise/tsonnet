@@ -43,6 +43,9 @@ rule read =
   | '/' { DIVIDE }
   | '!' { NOT }
   | '~' { BITWISE_NOT }
+  | '=' { ASSIGN }
+  | ';' { SEMICOLON }
+  | "local" { LOCAL }
   | id { ID (Lexing.lexeme lexbuf) }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }
