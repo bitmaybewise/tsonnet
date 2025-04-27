@@ -46,8 +46,7 @@ prog:
   ;
 
 expr:
-  | i = INT { with_pos $startpos $endpos (Number (Int i)) }
-  | f = FLOAT { with_pos $startpos $endpos (Number (Float f)) }
+  | n = number { with_pos $startpos $endpos (Number n) }
   | NULL { with_pos $startpos $endpos Null }
   | b = BOOL { with_pos $startpos $endpos (Bool b) }
   | s = STRING { with_pos $startpos $endpos (String s) }
@@ -75,6 +74,11 @@ obj_field:
 
 obj_fields:
     obj = separated_list(COMMA, obj_field) { obj };
+
+number:
+  | i = INT { Int i }
+  | f = FLOAT { Float f }
+  ;
 
 %inline bin_op:
   | PLUS { Add }
