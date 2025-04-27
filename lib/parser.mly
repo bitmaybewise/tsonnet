@@ -56,11 +56,7 @@ expr:
   | LEFT_SQR_BRACKET; values = list_fields; RIGHT_SQR_BRACKET { with_pos $startpos $endpos (Array values) }
   | LEFT_CURLY_BRACKET; attrs = obj_fields; RIGHT_CURLY_BRACKET { with_pos $startpos $endpos (Object attrs) }
   | e1 = expr; op = bin_op; e2 = expr { with_pos $startpos $endpos (BinOp (op, e1.value, e2.value)) }
-  | PLUS; e = expr; { with_pos $startpos $endpos (UnaryOp (Plus, e.value)) }
-  | MINUS; e = expr; { with_pos $startpos $endpos (UnaryOp (Minus, e.value)) }
-  | NOT; e = expr; { with_pos $startpos $endpos (UnaryOp (Not, e.value)) }
-  | BITWISE_NOT; e = expr; { with_pos $startpos $endpos (UnaryOp (BitwiseNot, e.value)) }
-  | LOCAL; varname = ID; ASSIGN; e = expr; { with_pos $startpos $endpos (Local (varname, e.value)) }
+  | op = unary_op; e = expr; { with_pos $startpos $endpos (UnaryOp (op, e.value)) }
   ;
 
 expr_seq:
@@ -87,3 +83,9 @@ obj_fields:
   | DIVIDE { Divide }
   ;
 
+%inline unary_op:
+  | PLUS { Plus }
+  | MINUS { Minus }
+  | NOT { Not }
+  | BITWISE_NOT { BitwiseNot }
+  ;
