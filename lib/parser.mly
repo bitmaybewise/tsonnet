@@ -55,10 +55,7 @@ expr:
   | LEFT_PAREN; e = expr; RIGHT_PAREN { with_pos $startpos $endpos e.value }
   | LEFT_SQR_BRACKET; values = list_fields; RIGHT_SQR_BRACKET { with_pos $startpos $endpos (Array values) }
   | LEFT_CURLY_BRACKET; attrs = obj_fields; RIGHT_CURLY_BRACKET { with_pos $startpos $endpos (Object attrs) }
-  | e1 = expr; PLUS; e2 = expr { with_pos $startpos $endpos (BinOp (Add, e1.value, e2.value)) }
-  | e1 = expr; MINUS; e2 = expr { with_pos $startpos $endpos (BinOp (Subtract, e1.value, e2.value)) }
-  | e1 = expr; MULTIPLY; e2 = expr { with_pos $startpos $endpos (BinOp (Multiply, e1.value, e2.value)) }
-  | e1 = expr; DIVIDE; e2 = expr { with_pos $startpos $endpos (BinOp (Divide, e1.value, e2.value)) }
+  | e1 = expr; op = bin_op; e2 = expr { with_pos $startpos $endpos (BinOp (op, e1.value, e2.value)) }
   | PLUS; e = expr; { with_pos $startpos $endpos (UnaryOp (Plus, e.value)) }
   | MINUS; e = expr; { with_pos $startpos $endpos (UnaryOp (Minus, e.value)) }
   | NOT; e = expr; { with_pos $startpos $endpos (UnaryOp (Not, e.value)) }
@@ -82,3 +79,11 @@ obj_field:
 
 obj_fields:
     obj = separated_list(COMMA, obj_field) { obj };
+
+%inline bin_op:
+  | PLUS { Add }
+  | MINUS { Subtract }
+  | MULTIPLY { Multiply }
+  | DIVIDE { Divide }
+  ;
+
