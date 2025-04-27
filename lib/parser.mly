@@ -27,47 +27,53 @@
 %token SEMICOLON
 %token LOCAL
 %token ASSIGN
-%right ASSIGN
+// %right ASSIGN
 %token EOF
 
-%start <Ast.prog> prog
+%start <Ast.expr> prog
 
 %%
 
 prog:
-  | e = expr; EOF { Expr e }
-  | e = expr; SEMICOLON; seq = expr_seq; EOF { Sequence (e :: seq) }
+  // | e = expr; EOF { Expr e }
+  // | e = expr; SEMICOLON; seq = expr_seq; EOF { Sequence (e :: seq) }
+  // | seq = expr_seq; EOF { Sequence (seq) }
+  exprs = separated_nonempty_list(SEMICOLON, expr); EOF { Program exprs }
   ;
 
 expr:
+  | LEFT_PAREN; e = expr; RIGHT_PAREN { e }
+  | e = literal { e }
+  | e1 = expr; op = bin_op; e2 = expr { BinOp (with_pos $startpos $endpos, op, e1, e2) }
+  | op = unary_op; e = expr; { UnaryOp (with_pos $startpos $endpos, op, e) }
+  | LOCAL; vars = vars { Local (with_pos $startpos $endpos, vars) }
+  ;
+
+// expr_seq:
+//   exprs = separated_nonempty_list(SEMICOLON, expr) { exprs };
+
+literal:
   | n = number { Number (with_pos $startpos $endpos, n) }
   | NULL { Null (with_pos $startpos $endpos) }
   | b = BOOL { Bool (with_pos $startpos $endpos, b) }
   | s = STRING { String (with_pos $startpos $endpos, s) }
   | id = ID { Ident (with_pos $startpos $endpos, id) }
-  | LEFT_PAREN; e = expr; RIGHT_PAREN { e }
   | LEFT_SQR_BRACKET; values = list_fields; RIGHT_SQR_BRACKET { Array (with_pos $startpos $endpos, values) }
   | LEFT_CURLY_BRACKET; attrs = obj_fields; RIGHT_CURLY_BRACKET { Object (with_pos $startpos $endpos, attrs) }
-  | e1 = expr; op = bin_op; e2 = expr { BinOp (with_pos $startpos $endpos, op, e1, e2) }
-  | op = unary_op; e = expr; { UnaryOp (with_pos $startpos $endpos, op, e) }
-  | LOCAL; varname = ID; ASSIGN; e = expr { Local (with_pos $startpos $endpos, varname, e) }
   ;
 
-expr_seq:
-  exprs = separated_list(SEMICOLON, expr) { exprs };
-
 list_fields:
-  vl = separated_list(COMMA, expr) { vl };
+  vl = separated_list(COMMA, literal) { vl };
 
 obj_field:
-  | k = STRING; COLON; e = expr { (k, e) }
-  | k = ID; COLON; e = expr { (k, e) }
+  | k = STRING; COLON; e = literal { (k, e) }
+  | k = ID; COLON; e = literal { (k, e) }
   ;
 
 obj_fields:
-    obj = separated_list(COMMA, obj_field) { obj };
+  obj = separated_list(COMMA, obj_field) { obj };
 
-number:
+%inline number:
   | i = INT { Int i }
   | f = FLOAT { Float f }
   ;
@@ -85,3 +91,9 @@ number:
   | NOT { Not }
   | BITWISE_NOT { BitwiseNot }
   ;
+
+var:
+  varname = ID; ASSIGN; e = expr { (varname, e) };
+
+vars:
+  vl = separated_nonempty_list(COMMA, var) { vl };

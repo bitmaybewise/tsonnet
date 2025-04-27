@@ -7,3 +7,5 @@ module Env =
 module Map = Map.Make(Env)
 
 let empty = Map.empty
+
+let keys env = Map.fold (fun k _ acc -> k :: acc) env []

@@ -29,8 +29,9 @@ type expr =
   | Object of position * (string * expr) list
   | BinOp of position * bin_op * expr * expr
   | UnaryOp of position * unary_op * expr
-  | Local of position * string * expr
+  | Local of position * (string * expr) list
   | Unit
+  | Program of expr list
 
 let dummy_pos = {
   startpos = Lexing.dummy_pos;
@@ -38,10 +39,6 @@ let dummy_pos = {
 }
 
 let dummy_expr = Unit
-
-type prog =
-  | Expr of expr
-  | Sequence of expr list
 
 let pos_from_lexbuf (lexbuf : Lexing.lexbuf) : position =
   { startpos = lexbuf.lex_curr_p;

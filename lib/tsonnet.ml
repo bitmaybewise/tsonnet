@@ -63,7 +63,7 @@ let rec interpret env expr =
   | Null _ | Bool _ | String _ | Number _ | Array _ | Object _ -> ok (env, expr)
   | Ident (pos, varname) ->
     (match Env.Map.find_opt varname env with
-    | Some expr -> ok (env, expr)
+    | Some expr -> interpret env expr
     | None -> Error.trace ("Undefined variable: " ^ varname) pos >>= error)
   | BinOp (pos, op, e1, e2) ->
     (let* (env1, e1') = interpret env e1 in
@@ -83,23 +83,24 @@ let rec interpret env expr =
       ~ok:(fun expr' -> ok (env', expr'))
       ~error:(fun errmsg ->  Error.trace errmsg pos >>= error)
     )
-  | Local (_, varname, value) ->
-    let env' = Env.Map.add varname value env in ok (env', Unit)
+  | Local (_, vars) ->
+    let acc_fun env (varname, expr) = Env.Map.add varname expr env in
+    let env' = List.fold_left acc_fun env vars
+    in ok (env', Unit)
   | Unit -> ok (env, Unit)
+  | Program exprs ->
+    (match exprs with
+    | [] -> ok (env, Unit)
+    | [expr] -> interpret env expr
+    | (expr :: exprs) -> interpret env expr >>= fun (env', _) -> interpret env' (Program exprs))
 
-let rec reduce_ast env prog =
+(* let rec reduce_ast env prog =
   match prog with
-  | Expr expr ->
-    interpret env expr
-  | Sequence exprs ->
-    match exprs with
-    | [] ->
-      ok (env, Unit)
-    | [expr] ->
-    interpret env expr
-    | expr :: exprs ->
-      interpret env expr >>= fun (env', _) -> reduce_ast env' (Sequence exprs)
+  | Program [] -> ok (env, Unit)
+  | Program [expr] -> interpret env expr
+  | Program (expr :: exprs) -> interpret env expr >>= fun (env', _) -> reduce_ast env' (Program exprs)
+  | _ -> Error.trace "Invalid program" dummy_pos >>= error *)
 
 let run (filename: string) : (string, string) result =
   let env = Env.Map.empty in
-  parse filename >>= reduce_ast env >>= fun (_env, expr) -> Json.expr_to_string expr
+  parse filename >>= interpret env >>= fun (_env, expr) -> Json.expr_to_string expr
