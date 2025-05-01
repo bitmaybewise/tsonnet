@@ -14,38 +14,30 @@ type number =
   | Int of int
   | Float of float
 
-type value =
-  | Number of number
-  | Null
-  | Bool of bool
-  | String of string
-  | Ident of string
-  | Array of value list
-  | Object of (string * value) list
-  | BinOp of bin_op * value * value
-  | UnaryOp of unary_op * value
-  | Local of string * value
-  | Unit
-
 type position = {
   startpos: Lexing.position;
   endpos: Lexing.position;
 }
+
+type expr =
+  | Null of position
+  | Number of position * number
+  | Bool of position * bool
+  | String of position * string
+  | Ident of position * string
+  | Array of position * expr list
+  | Object of position * (string * expr) list
+  | BinOp of position * bin_op * expr * expr
+  | UnaryOp of position * unary_op * expr
+  | Local of position * string * expr
+  | Unit
 
 let dummy_pos = {
   startpos = Lexing.dummy_pos;
   endpos = Lexing.dummy_pos;
 }
 
-type expr = {
-  position: position;
-  value: value;
-}
-
-let dummy_expr = {
-  position=dummy_pos;
-  value=Unit;
-}
+let dummy_expr = Unit
 
 type prog =
   | Expr of expr

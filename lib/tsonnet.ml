@@ -18,79 +18,74 @@ let parse (filename: string) =
   close_in input;
   result
 
-let interpret_arith_op (op: bin_op) (n1: number) (n2: number) : Ast.value =
+let interpret_arith_op (op: bin_op) (n1: number) (n2: number) =
   match op, n1, n2 with
-  | Add, (Int a), (Int b) -> Number (Int (a + b))
-  | Add, (Float a), (Int b) -> Number (Float (a +. (float_of_int b)))
-  | Add, (Int a), (Float b) -> Number (Float ((float_of_int a) +. b))
-  | Add, (Float a), (Float b) -> Number (Float (a +. b))
-  | Subtract, (Int a), (Int b) -> Number (Int (a - b))
-  | Subtract, (Float a), (Int b) -> Number (Float (a -. (float_of_int b)))
-  | Subtract, (Int a), (Float b) -> Number (Float ((float_of_int a) -. b))
-  | Subtract, (Float a), (Float b) -> Number (Float (a -. b))
-  | Multiply, (Int a), (Int b) -> Number (Int (a * b))
-  | Multiply, (Float a), (Int b) -> Number (Float (a *. (float_of_int b)))
-  | Multiply, (Int a), (Float b) -> Number (Float ((float_of_int a) *. b))
-  | Multiply, (Float a), (Float b) -> Number (Float (a *. b))
-  | Divide, (Int a), (Int b) -> Number (Float ((float_of_int a) /. (float_of_int b)))
-  | Divide, (Float a), (Int b) -> Number (Float (a /. (float_of_int b)))
-  | Divide, (Int a), (Float b) -> Number (Float ((float_of_int a) /. b))
-  | Divide, (Float a), (Float b) -> Number (Float (a /. b))
+  | Add, (Int a), (Int b) -> Int (a + b)
+  | Add, (Float a), (Int b) -> Float (a +. (float_of_int b))
+  | Add, (Int a), (Float b) -> Float ((float_of_int a) +. b)
+  | Add, (Float a), (Float b) -> Float (a +. b)
+  | Subtract, (Int a), (Int b) -> Int (a - b)
+  | Subtract, (Float a), (Int b) -> Float (a -. (float_of_int b))
+  | Subtract, (Int a), (Float b) -> Float ((float_of_int a) -. b)
+  | Subtract, (Float a), (Float b) -> Float (a -. b)
+  | Multiply, (Int a), (Int b) -> Int (a * b)
+  | Multiply, (Float a), (Int b) -> Float (a *. (float_of_int b))
+  | Multiply, (Int a), (Float b) -> Float ((float_of_int a) *. b)
+  | Multiply, (Float a), (Float b) -> Float (a *. b)
+  | Divide, (Int a), (Int b) -> Float ((float_of_int a) /. (float_of_int b))
+  | Divide, (Float a), (Int b) -> Float (a /. (float_of_int b))
+  | Divide, (Int a), (Float b) -> Float ((float_of_int a) /. b)
+  | Divide, (Float a), (Float b) -> Float (a /. b)
 
 let interpret_concat_op (e1 : expr) (e2 : expr) : (expr, string) result =
-  let value =
-    match e1.value, e2.value with
-    | String s1, String s2 -> ok (String (s1^s2))
-    | String s1, val2 ->
-      let* s2 = Json.expr_to_string {e2 with value = val2} in
-      ok (String (s1^s2))
-    | val1, String s2 ->
-      let* s1 = Json.expr_to_string {e1 with value = val1} in
-      ok (String (s1^s2))
-    | _ -> error "invalid string concatenation operation"
-    in Result.map (fun v -> { e1 with value = v }) value
+  match e1, e2 with
+  | String (_, s1), String (_, s2) ->
+    ok (String (dummy_pos, s1^s2))
+  | String (_, s1), val2 ->
+    let* s2 = Json.expr_to_string val2 in ok (String (dummy_pos, s1^s2))
+  | val1, String (_, s2) ->
+    let* s1 = Json.expr_to_string val1 in ok (String (dummy_pos, s1^s2))
+  | _ ->
+    error "Invalid string concatenation operation"
 
-let interpret_unary_op (op: unary_op) (evaluated_expr: expr)  =
-    let* new_value = (match op, evaluated_expr.value with
-                    | Plus, number -> ok number
-                    | Minus, Number (Int i) -> ok (Number (Int (-i)))
-                    | Minus, Number (Float f) -> ok (Number (Float (-. f)))
-                    | Not, (Bool b) -> ok (Bool (not b))
-                    | BitwiseNot, Number (Int i) -> ok (Number (Int (lnot i)))
-                    | _ -> error "invalid unary operation")
-    in ok { evaluated_expr with value = new_value }
+let interpret_unary_op (op: unary_op) (evaluated_expr: expr) =
+  match op, evaluated_expr with
+  | Plus, number -> ok number
+  | Minus, Number (pos, Int i) -> ok (Number (pos, Int (-i)))
+  | Minus, Number (pos, Float f) -> ok (Number (pos, Float (-. f)))
+  | Not, (Bool (pos, b)) -> ok (Bool (pos, not b))
+  | BitwiseNot, Number (pos, Int i) -> ok (Number (pos, Int (lnot i)))
+  | _ -> error "Invalid unary operation"
 
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
-  match expr.value with
-  | Null | Bool _ | String _ | Number _ | Array _ | Object _ -> ok (env, expr)
-  | Ident varname ->
+  match expr with
+  | Null _ | Bool _ | String _ | Number _ | Array _ | Object _ -> ok (env, expr)
+  | Ident (pos, varname) ->
     (match Env.Map.find_opt varname env with
-    | Some value ->
-      ok (env, {Ast.dummy_expr with value = value})
-    | None -> Error.trace ("Undefined variable: " ^ varname) expr.position >>= error)
-  | BinOp (op, e1, e2) ->
-    (let* (env1, e1') = interpret env ({expr with value = e1}) in
-    let* (env2, e2') = interpret env1 ({expr with value = e2}) in
-    match op, e1'.value, e2'.value with
+    | Some expr -> ok (env, expr)
+    | None -> Error.trace ("Undefined variable: " ^ varname) pos >>= error)
+  | BinOp (pos, op, e1, e2) ->
+    (let* (env1, e1') = interpret env e1 in
+    let* (env2, e2') = interpret env1 e2 in
+    match op, e1', e2' with
     | Add, (String _ as v1), (_ as v2) | Add, (_ as v1), (String _ as v2) ->
-      (let expr1 = { expr with value = v1 }
-      in let expr2 = { expr with value = v2 }
-      in interpret_concat_op expr1 expr2 >>= fun expr' -> ok (env, expr'))
-    | _, Number v1, Number v2 ->
-      (let value = interpret_arith_op op v1 v2
-      in ok (env2, {expr with value = value}))
+      let* expr' = interpret_concat_op v1 v2 in
+      ok (env, expr')
+    | _, Number (pos, v1), Number (_, v2) ->
+      ok (env2, Number (pos, interpret_arith_op op v1 v2))
     | _ ->
-      Error.trace "invalid binary operation" expr.position >>= error
+      Error.trace "Invalid binary operation" pos >>= error
     )
-  | UnaryOp (op, value) ->
-    (interpret env ({expr with value = value})
-    >>= fun (env, expr') -> interpret_unary_op op expr'
-    >>= fun expr' -> ok (env, expr'))
-  | Local (varname, value) ->
-    let env' = Env.Map.add varname value env in
-    ok (env', Ast.dummy_expr)
-  | _ -> error "Oops"
+  | UnaryOp (pos, op, expr) ->
+    (let* (env', expr') = interpret env expr in
+    Result.fold (interpret_unary_op op expr')
+      ~ok:(fun expr' -> ok (env', expr'))
+      ~error:(fun errmsg ->  Error.trace errmsg pos >>= error)
+    )
+  | Local (_, varname, value) ->
+    let env' = Env.Map.add varname value env in ok (env', Unit)
+  | Unit -> ok (env, Unit)
 
 let rec reduce_ast env prog =
   match prog with
@@ -99,7 +94,7 @@ let rec reduce_ast env prog =
   | Sequence exprs ->
     match exprs with
     | [] ->
-      ok (env, {position=Ast.dummy_pos; value=Unit;})
+      ok (env, Unit)
     | [expr] ->
     interpret env expr
     | expr :: exprs ->

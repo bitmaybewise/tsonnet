@@ -13,14 +13,14 @@
   [1]
 
   $ tsonnet ../../samples/errors/sum_int_to_boolean.jsonnet
-  ../../samples/errors/sum_int_to_boolean.jsonnet:1:0 invalid binary operation
+  ../../samples/errors/sum_int_to_boolean.jsonnet:1:0 Invalid binary operation
   
   1: 42 + true
      ^^^^^^^^^
   [1]
 
   $ tsonnet ../../samples/errors/sum_int_to_boolean_multiline.jsonnet
-  ../../samples/errors/sum_int_to_boolean_multiline.jsonnet:1:0 invalid binary operation
+  ../../samples/errors/sum_int_to_boolean_multiline.jsonnet:1:0 Invalid binary operation
   
   1: (1+1+1+1)+
      ^^^^^^^^^^

@@ -1,20 +1,20 @@
 open Ast
 open Result
 
-let rec value_to_yojson : Ast.value -> (Yojson.t, string) result = function
-  | Number n ->
+let rec value_to_yojson : Ast.expr -> (Yojson.t, string) result = function
+  | Number (_, n) ->
     ok (match n with
     | Int i -> `Int i
     | Float f -> `Float f)
-  | Null -> ok `Null
-  | Bool b -> ok (`Bool b)
-  | String s -> ok (`String s)
-  | Ident id -> ok (`String id)
-  | Array values ->
+  | Null _ -> ok `Null
+  | Bool (_, b) -> ok (`Bool b)
+  | String (_, s) -> ok (`String s)
+  | Ident (_, id) -> ok (`String id)
+  | Array (_, values) ->
     let expr_to_list expr' = to_list (value_to_yojson expr') in
     let results = values |> List.map expr_to_list |> List.concat in
     ok (`List results)
-  | Object attrs ->
+  | Object (_, attrs) ->
     let eval' = fun (k, v) ->
       let result = value_to_yojson v
       in Result.map (fun val' -> (k, val')) result
@@ -24,5 +24,5 @@ let rec value_to_yojson : Ast.value -> (Yojson.t, string) result = function
   | _ -> error "value type not representable as JSON"
 
 let expr_to_string expr =
-  let yojson = value_to_yojson expr.value
+  let yojson = value_to_yojson expr
   in Result.map Yojson.pretty_to_string yojson

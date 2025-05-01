@@ -2,12 +2,9 @@
   [@@@coverage exclude_file]
   open Ast
 
-  let with_pos startpos endpos value : Ast.expr = {
-    position = {
-      startpos = startpos;
-      endpos = endpos;
-    };
-    value = value
+  let with_pos startpos endpos = {
+    startpos = startpos;
+    endpos = endpos;
   }
 %}
 
@@ -16,13 +13,10 @@
 %token NULL
 %token <bool> BOOL
 %token <string> STRING
-%token LEFT_SQR_BRACKET
-%token RIGHT_SQR_BRACKET
-%token LEFT_PAREN
-%token RIGHT_PAREN
+%token LEFT_SQR_BRACKET RIGHT_SQR_BRACKET
+%token LEFT_PAREN RIGHT_PAREN
 %token COMMA
-%token LEFT_CURLY_BRACKET
-%token RIGHT_CURLY_BRACKET
+%token LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
 %token COLON
 %token PLUS MINUS MULTIPLY DIVIDE
 %left PLUS MINUS
@@ -46,30 +40,28 @@ prog:
   ;
 
 expr:
-  | n = number { with_pos $startpos $endpos (Number n) }
-  | NULL { with_pos $startpos $endpos Null }
-  | b = BOOL { with_pos $startpos $endpos (Bool b) }
-  | s = STRING { with_pos $startpos $endpos (String s) }
-  | id = ID { with_pos $startpos $endpos (Ident id) }
-  | LEFT_PAREN; e = expr; RIGHT_PAREN { with_pos $startpos $endpos e.value }
-  | LEFT_SQR_BRACKET; values = list_fields; RIGHT_SQR_BRACKET { with_pos $startpos $endpos (Array values) }
-  | LEFT_CURLY_BRACKET; attrs = obj_fields; RIGHT_CURLY_BRACKET { with_pos $startpos $endpos (Object attrs) }
-  | e1 = expr; op = bin_op; e2 = expr { with_pos $startpos $endpos (BinOp (op, e1.value, e2.value)) }
-  | op = unary_op; e = expr; { with_pos $startpos $endpos (UnaryOp (op, e.value)) }
+  | n = number { Number (with_pos $startpos $endpos, n) }
+  | NULL { Null (with_pos $startpos $endpos) }
+  | b = BOOL { Bool (with_pos $startpos $endpos, b) }
+  | s = STRING { String (with_pos $startpos $endpos, s) }
+  | id = ID { Ident (with_pos $startpos $endpos, id) }
+  | LEFT_PAREN; e = expr; RIGHT_PAREN { e }
+  | LEFT_SQR_BRACKET; values = list_fields; RIGHT_SQR_BRACKET { Array (with_pos $startpos $endpos, values) }
+  | LEFT_CURLY_BRACKET; attrs = obj_fields; RIGHT_CURLY_BRACKET { Object (with_pos $startpos $endpos, attrs) }
+  | e1 = expr; op = bin_op; e2 = expr { BinOp (with_pos $startpos $endpos, op, e1, e2) }
+  | op = unary_op; e = expr; { UnaryOp (with_pos $startpos $endpos, op, e) }
+  | LOCAL; varname = ID; ASSIGN; e = expr { Local (with_pos $startpos $endpos, varname, e) }
   ;
 
 expr_seq:
   exprs = separated_list(SEMICOLON, expr) { exprs };
 
-list_value:
-  e = expr { e.value };
-
 list_fields:
-  vl = separated_list(COMMA, list_value) { vl };
+  vl = separated_list(COMMA, expr) { vl };
 
 obj_field:
-  | k = STRING; COLON; e = expr { (k, e.value) }
-  | k = ID; COLON; e = expr { (k, e.value) }
+  | k = STRING; COLON; e = expr { (k, e) }
+  | k = ID; COLON; e = expr { (k, e) }
   ;
 
 obj_fields:
