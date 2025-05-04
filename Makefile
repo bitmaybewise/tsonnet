@@ -17,3 +17,7 @@ clean:
 .PHONY: prepare-dev-setup
 prepare-dev-setup:
 	mise install
+
+.PHONY: explain
+explain:
+	menhir --explain lib/parser.mly

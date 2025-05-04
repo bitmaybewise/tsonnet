@@ -31,7 +31,7 @@ type expr =
   | UnaryOp of position * unary_op * expr
   | Local of position * (string * expr) list
   | Unit
-  | Program of expr list
+  | Seq of expr list
 
 let dummy_pos = {
   startpos = Lexing.dummy_pos;

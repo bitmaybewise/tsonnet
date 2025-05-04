@@ -13,7 +13,7 @@ let parse (filename: string) =
     try ok (Parser.prog Lexer.read lexbuf)
     with
     | Lexer.SyntaxError err -> (Error.trace err (Ast.pos_from_lexbuf lexbuf)) >>= error
-    | Parser.Error -> (Error.trace "Parser Error" (Ast.pos_from_lexbuf lexbuf)) >>= error
+    | Parser.Error -> (Error.trace "Invalid syntax" (Ast.pos_from_lexbuf lexbuf)) >>= error
   in
   close_in input;
   result
@@ -88,18 +88,11 @@ let rec interpret env expr =
     let env' = List.fold_left acc_fun env vars
     in ok (env', Unit)
   | Unit -> ok (env, Unit)
-  | Program exprs ->
+  | Seq exprs ->
     (match exprs with
     | [] -> ok (env, Unit)
     | [expr] -> interpret env expr
-    | (expr :: exprs) -> interpret env expr >>= fun (env', _) -> interpret env' (Program exprs))
-
-(* let rec reduce_ast env prog =
-  match prog with
-  | Program [] -> ok (env, Unit)
-  | Program [expr] -> interpret env expr
-  | Program (expr :: exprs) -> interpret env expr >>= fun (env', _) -> reduce_ast env' (Program exprs)
-  | _ -> Error.trace "Invalid program" dummy_pos >>= error *)
+    | (expr :: exprs) -> interpret env expr >>= fun (env', _) -> interpret env' (Seq exprs))
 
 let run (filename: string) : (string, string) result =
   let env = Env.Map.empty in

@@ -27,7 +27,6 @@
 %token SEMICOLON
 %token LOCAL
 %token ASSIGN
-// %right ASSIGN
 %token EOF
 
 %start <Ast.expr> prog
@@ -35,22 +34,29 @@
 %%
 
 prog:
-  // | e = expr; EOF { Expr e }
-  // | e = expr; SEMICOLON; seq = expr_seq; EOF { Sequence (e :: seq) }
-  // | seq = expr_seq; EOF { Sequence (seq) }
-  exprs = separated_nonempty_list(SEMICOLON, expr); EOF { Program exprs }
+  | e = expr; EOF { e }
+  | e = expr_seq; EOF { e }
   ;
 
 expr:
-  | LEFT_PAREN; e = expr; RIGHT_PAREN { e }
-  | e = literal { e }
-  | e1 = expr; op = bin_op; e2 = expr { BinOp (with_pos $startpos $endpos, op, e1, e2) }
-  | op = unary_op; e = expr; { UnaryOp (with_pos $startpos $endpos, op, e) }
-  | LOCAL; vars = vars { Local (with_pos $startpos $endpos, vars) }
+  | e = assignable_expr { e }
+  | e = vars { e }
   ;
 
-// expr_seq:
-//   exprs = separated_nonempty_list(SEMICOLON, expr) { exprs };
+expr_seq:
+  e = expr; SEMICOLON; rest = separated_list(SEMICOLON, expr) { Seq (e :: rest) };
+
+assignable_expr:
+  | e = scoped_expr { e }
+  | e = literal { e }
+  | e1 = assignable_expr; op = bin_op; e2 = assignable_expr { BinOp (with_pos $startpos $endpos, op, e1, e2) }
+  | op = unary_op; e = assignable_expr; { UnaryOp (with_pos $startpos $endpos, op, e) }
+  ;
+
+scoped_expr:
+  | LEFT_PAREN; e = expr; RIGHT_PAREN { e }
+  | LEFT_PAREN; e = expr_seq; RIGHT_PAREN { e }
+  ;
 
 literal:
   | n = number { Number (with_pos $startpos $endpos, n) }
@@ -63,11 +69,11 @@ literal:
   ;
 
 list_fields:
-  vl = separated_list(COMMA, literal) { vl };
+  vl = separated_list(COMMA, assignable_expr) { vl };
 
 obj_field:
-  | k = STRING; COLON; e = literal { (k, e) }
-  | k = ID; COLON; e = literal { (k, e) }
+  | k = STRING; COLON; e = assignable_expr { (k, e) }
+  | k = ID; COLON; e = assignable_expr { (k, e) }
   ;
 
 obj_fields:
@@ -93,7 +99,7 @@ obj_fields:
   ;
 
 var:
-  varname = ID; ASSIGN; e = expr { (varname, e) };
+  varname = ID; ASSIGN; e = assignable_expr { (varname, e) };
 
 vars:
-  vl = separated_nonempty_list(COMMA, var) { vl };
+  LOCAL; vars = separated_nonempty_list(COMMA, var) { Local (with_pos $startpos $endpos, vars) };
