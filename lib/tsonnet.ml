@@ -60,7 +60,17 @@ let interpret_unary_op (op: unary_op) (evaluated_expr: expr) =
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
   match expr with
-  | Null _ | Bool _ | String _ | Number _ | Array _ | Object _ -> ok (env, expr)
+  | Null _ | Bool _ | String _ | Number _ | Object _ -> ok (env, expr)
+  | Array (pos, exprs) ->
+    (let rec eval' env' exprs' =
+      match exprs' with
+      | [] -> ok (env', [])
+      | e :: exprs ->
+        (let* (env1, expr') = interpret env' e in
+        let* (env2, rest) = eval' env1 exprs in
+        ok (env2, expr' :: rest))
+    in eval' env exprs >>= fun (env3, exprs') -> ok (env3, Array (pos, exprs'))
+    )
   | Ident (pos, varname) ->
     (match Env.Map.find_opt varname env with
     | Some expr -> interpret env expr
@@ -93,6 +103,20 @@ let rec interpret env expr =
     | [] -> ok (env, Unit)
     | [expr] -> interpret env expr
     | (expr :: exprs) -> interpret env expr >>= fun (env', _) -> interpret env' (Seq exprs))
+  | IndexedExpr (pos, varname, index_expr) ->
+    (match Env.Map.find_opt varname env with
+    | Some (Array (_, exprs)) ->
+      let* (env', idx_expr') = interpret env index_expr in
+      (match idx_expr' with
+      | Number (_, Int i)->
+        (if i >= 0 && i < List.length exprs
+        then ok (env', List.nth exprs i)
+        else Error.trace ("Index out of bounds: " ^ string_of_int i) pos >>= error)
+      | _ -> Error.trace "Expected integer index" pos >>= error
+      )
+    | Some _ -> Error.trace ("Expected array, found: " ^ varname) pos >>= error
+    | None -> Error.trace ("Undefined variable: " ^ varname) pos >>= error
+    )
 
 let run (filename: string) : (string, string) result =
   let env = Env.Map.empty in

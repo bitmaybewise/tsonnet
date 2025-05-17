@@ -50,7 +50,8 @@ assignable_expr:
   | e = scoped_expr { e }
   | e = literal { e }
   | e1 = assignable_expr; op = bin_op; e2 = assignable_expr { BinOp (with_pos $startpos $endpos, op, e1, e2) }
-  | op = unary_op; e = assignable_expr; { UnaryOp (with_pos $startpos $endpos, op, e) }
+  | op = unary_op; e = assignable_expr { UnaryOp (with_pos $startpos $endpos, op, e) }
+  | varname = ID; LEFT_SQR_BRACKET; e = assignable_expr; RIGHT_SQR_BRACKET { IndexedExpr (with_pos $startpos $endpos, varname, e) }
   ;
 
 scoped_expr:

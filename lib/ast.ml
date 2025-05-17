@@ -32,6 +32,7 @@ type expr =
   | Local of position * (string * expr) list
   | Unit
   | Seq of expr list
+  | IndexedExpr of position * string * expr
 
 let dummy_pos = {
   startpos = Lexing.dummy_pos;
