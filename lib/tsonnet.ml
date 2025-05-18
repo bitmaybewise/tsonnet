@@ -109,9 +109,10 @@ let rec interpret env expr =
         let* (env', idx_expr') = interpret env' index_expr in
         (match idx_expr' with
         | Number (_, Int i)->
-          (if i >= 0 && i < List.length exprs
+          (let len = List.length exprs in
+          if i >= 0 && i < len
           then ok (env', List.nth exprs i)
-          else Error.trace ("Index out of bounds: " ^ string_of_int i) pos >>= error)
+          else Error.trace ("Index out of bounds. Trying to access index " ^ string_of_int i ^ " but \"" ^ varname ^ "\" length is " ^ string_of_int len) pos >>= error)
         | _ -> Error.trace "Expected integer index" pos >>= error
         )
       | _ -> Error.trace ("Expected array, found: " ^ varname) pos >>= error

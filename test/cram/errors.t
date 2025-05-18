@@ -44,3 +44,10 @@
      ^
   [1]
 
+  $ tsonnet ../../samples/errors/array_index_out_of_bounds.jsonnet
+  ../../samples/errors/array_index_out_of_bounds.jsonnet:3:0 Index out of bounds. Trying to access index 4 but "list" length is 3
+  
+  3: list[index]
+     ^^^^^^^^^^^
+  [1]
+
