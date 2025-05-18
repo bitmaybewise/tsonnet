@@ -1,8 +1,6 @@
 open Ast
 open Result
-
-let (let*) = Result.bind
-let (>>=) = Result.bind
+open Syntax_sugar
 
 (** [parse s] parses [s] into an AST. *)
 let parse (filename: string) =
