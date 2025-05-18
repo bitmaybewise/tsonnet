@@ -70,9 +70,9 @@ let rec interpret env expr =
     in eval' env exprs >>= fun (env3, exprs') -> ok (env3, Array (pos, exprs'))
     )
   | Ident (pos, varname) ->
-    (match Env.Map.find_opt varname env with
-    | Some expr -> interpret env expr
-    | None -> Error.trace ("Undefined variable: " ^ varname) pos >>= error)
+    Env.find_var varname env
+      ~succ:(fun env' expr -> interpret env' expr)
+      ~err:(fun err_msg -> Error.trace err_msg pos >>= error)
   | BinOp (pos, op, e1, e2) ->
     (let* (env1, e1') = interpret env e1 in
     let* (env2, e2') = interpret env1 e2 in
@@ -102,19 +102,21 @@ let rec interpret env expr =
     | [expr] -> interpret env expr
     | (expr :: exprs) -> interpret env expr >>= fun (env', _) -> interpret env' (Seq exprs))
   | IndexedExpr (pos, varname, index_expr) ->
-    (match Env.Map.find_opt varname env with
-    | Some (Array (_, exprs)) ->
-      let* (env', idx_expr') = interpret env index_expr in
-      (match idx_expr' with
-      | Number (_, Int i)->
-        (if i >= 0 && i < List.length exprs
-        then ok (env', List.nth exprs i)
-        else Error.trace ("Index out of bounds: " ^ string_of_int i) pos >>= error)
-      | _ -> Error.trace "Expected integer index" pos >>= error
+    Env.find_var varname env
+      ~succ:(fun env' expr ->
+      match expr with
+      | Array (_, exprs) ->
+        let* (env', idx_expr') = interpret env' index_expr in
+        (match idx_expr' with
+        | Number (_, Int i)->
+          (if i >= 0 && i < List.length exprs
+          then ok (env', List.nth exprs i)
+          else Error.trace ("Index out of bounds: " ^ string_of_int i) pos >>= error)
+        | _ -> Error.trace "Expected integer index" pos >>= error
+        )
+      | _ -> Error.trace ("Expected array, found: " ^ varname) pos >>= error
       )
-    | Some _ -> Error.trace ("Expected array, found: " ^ varname) pos >>= error
-    | None -> Error.trace ("Undefined variable: " ^ varname) pos >>= error
-    )
+      ~err:(fun err_msg -> Error.trace err_msg pos >>= error)
 
 let run (filename: string) : (string, string) result =
   let env = Env.Map.empty in
