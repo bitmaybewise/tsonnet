@@ -37,3 +37,10 @@
      ^^^^^^^^^^^^^^^^
   [1]
 
+  $ tsonnet ../../samples/errors/undefined_local.jsonnet
+  ../../samples/errors/undefined_local.jsonnet:3:0 Undefined variable: c
+  
+  3: c
+     ^
+  [1]
+
