@@ -44,4 +44,36 @@ let dummy_expr = Unit
 let pos_from_lexbuf (lexbuf : Lexing.lexbuf) : position =
   { startpos = lexbuf.lex_curr_p;
     endpos = lexbuf.lex_curr_p;
-  };
+  }
+
+let string_of_type = function
+  | Null _ -> "Null"
+  | Number (_, number) ->
+    (match number with
+    | Int _ -> "Int"
+    | Float _ -> "Float")
+  | Bool _ -> "Bool"
+  | String _ -> "String"
+  | Ident _ -> "Identity"
+  | Array _ -> "Array"
+  | Object _ -> "Object"
+  | BinOp (_, bin_op, _, _) ->
+    let prefix = "Binary Operation" in
+    let bin_op = match bin_op with
+    | Add -> "+"
+    | Subtract -> "-"
+    | Multiply -> "*"
+    | Divide -> "/"
+    in prefix ^ " " ^ bin_op
+  | UnaryOp (_, unary_op, _) ->
+    let prefix = "Unary Operation" in
+    let unary_op = match unary_op with
+    | Plus -> "+"
+    | Minus -> "-"
+    | Not -> "!"
+    | BitwiseNot -> "~"
+    in prefix ^ " " ^ unary_op
+  | Local _ -> "Local"
+  | Unit -> "()"
+  | Seq _ -> "Sequence"
+  | IndexedExpr _ -> "Indexed Expression"
