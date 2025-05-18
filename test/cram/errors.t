@@ -51,3 +51,10 @@
      ^^^^^^^^^^^
   [1]
 
+  $ tsonnet ../../samples/errors/array_index_not_int.jsonnet
+  ../../samples/errors/array_index_not_int.jsonnet:3:0 Expected Integer index, got String
+  
+  3: list[index]
+     ^^^^^^^^^^^
+  [1]
+

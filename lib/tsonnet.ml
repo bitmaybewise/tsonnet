@@ -113,7 +113,7 @@ let rec interpret env expr =
           if i >= 0 && i < len
           then ok (env', List.nth exprs i)
           else Error.trace ("Index out of bounds. Trying to access index " ^ string_of_int i ^ " but \"" ^ varname ^ "\" length is " ^ string_of_int len) pos >>= error)
-        | _ -> Error.trace "Expected integer index" pos >>= error
+        | expr' -> Error.trace ("Expected Integer index, got " ^ Ast.string_of_type expr') pos >>= error
         )
       | _ -> Error.trace ("Expected array, found: " ^ varname) pos >>= error
       )
