@@ -115,7 +115,7 @@ let rec interpret env expr =
           else Error.trace ("Index out of bounds. Trying to access index " ^ string_of_int i ^ " but \"" ^ varname ^ "\" length is " ^ string_of_int len) pos >>= error)
         | expr' -> Error.trace ("Expected Integer index, got " ^ Ast.string_of_type expr') pos >>= error
         )
-      | _ -> Error.trace ("Expected array, found: " ^ varname) pos >>= error
+      | evaluated_expr -> Error.trace ("Expected \"Array\", found \"" ^ string_of_type evaluated_expr ^ "\"") pos >>= error
       )
       ~err:(fun err_msg -> Error.trace err_msg pos >>= error)
 

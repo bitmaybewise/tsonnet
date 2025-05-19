@@ -58,3 +58,10 @@
      ^^^^^^^^^^^
   [1]
 
+  $ tsonnet ../../samples/errors/value_non_indexable.jsonnet
+  ../../samples/errors/value_non_indexable.jsonnet:2:0 Expected "Array", found "Int"
+  
+  2: answer[0]
+     ^^^^^^^^^
+  [1]
+
