@@ -115,7 +115,20 @@ let rec interpret env expr =
           else Error.trace ("Index out of bounds. Trying to access index " ^ string_of_int i ^ " but \"" ^ varname ^ "\" length is " ^ string_of_int len) pos >>= error)
         | expr' -> Error.trace ("Expected Integer index, got " ^ Ast.string_of_type expr') pos >>= error
         )
-      | evaluated_expr -> Error.trace ("Expected \"Array\", found \"" ^ string_of_type evaluated_expr ^ "\"") pos >>= error
+      | String (_, s) ->
+        let* (env', idx_expr') = interpret env' index_expr in
+        (match idx_expr' with
+        | Number (_, Int i) ->
+          (let len = String.length s in
+          if i >= 0 && i < len
+          then
+            let char_str = String.make 1 (String.get s i) in
+            ok (env', String (dummy_pos, char_str))
+          else
+            Error.trace ("Index out of bounds. Trying to access index " ^ string_of_int i ^ " but \"" ^ varname ^ "\" length is " ^ string_of_int len) pos >>= error)
+        | expr' -> Error.trace ("Expected Integer index, got " ^ Ast.string_of_type expr') pos >>= error
+        )
+      | evaluated_expr -> Error.trace (string_of_type evaluated_expr ^ " is a non indexable value") pos >>= error
       )
       ~err:(fun err_msg -> Error.trace err_msg pos >>= error)
 

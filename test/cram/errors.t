@@ -59,9 +59,15 @@
   [1]
 
   $ tsonnet ../../samples/errors/value_non_indexable.jsonnet
-  ../../samples/errors/value_non_indexable.jsonnet:2:0 Expected "Array", found "Int"
+  ../../samples/errors/value_non_indexable.jsonnet:2:0 Int is a non indexable value
   
   2: answer[0]
      ^^^^^^^^^
   [1]
 
+  $ tsonnet ../../samples/errors/string_index_out_of_bounds.jsonnet
+  ../../samples/errors/string_index_out_of_bounds.jsonnet:2:0 Index out of bounds. Trying to access index 1234 but "name" length is 7
+  
+  2: name[1234]
+     ^^^^^^^^^^
+  [1]
