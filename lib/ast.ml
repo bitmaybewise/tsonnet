@@ -1,3 +1,5 @@
+open Syntax_sugar
+
 type bin_op =
   | Add
   | Subtract
@@ -77,3 +79,28 @@ let string_of_type = function
   | Unit -> "()"
   | Seq _ -> "Sequence"
   | IndexedExpr _ -> "Indexed Expression"
+
+module Indexable = struct
+  let length (e : expr) =
+    match e with
+    | Array (_, exprs) -> Result.ok (List.length exprs)
+    | String (_, s) -> Result.ok (String.length s)
+    | evaluated_expr -> Result.error (string_of_type evaluated_expr ^ " is a non indexable value")
+
+  let nth (expr : expr) (index : int) =
+    match expr with
+    | Array (_, exprs) -> Result.ok (List.nth exprs index)
+    | String (_, s) -> Result.ok (String (dummy_pos, String.make 1 (String.get s index)))
+    | evaluated_expr -> Result.error (string_of_type evaluated_expr ^ " is a non indexable value")
+
+  let get (index : expr) (expr : expr) : (expr, string) result =
+    match index with
+    | Number (_, Int i) ->
+      let* len = length expr in
+      if i >= 0 && i < len
+        then nth expr i
+        else
+          Result.error ("Index out of bounds. Trying to access index " ^ string_of_int i ^ " but length is " ^ string_of_int len)
+    | expr' ->
+      Result.error ("Expected Integer index, got " ^ (string_of_type expr'))
+end

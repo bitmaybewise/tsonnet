@@ -55,6 +55,8 @@ let interpret_unary_op (op: unary_op) (evaluated_expr: expr) =
   | BitwiseNot, Number (pos, Int i) -> ok (Number (pos, Int (lnot i)))
   | _ -> error "Invalid unary operation"
 
+let error_at pos = fun msg -> Error.trace msg pos >>= error
+
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
   match expr with
@@ -72,7 +74,7 @@ let rec interpret env expr =
   | Ident (pos, varname) ->
     Env.find_var varname env
       ~succ:(fun env' expr -> interpret env' expr)
-      ~err:(fun err_msg -> Error.trace err_msg pos >>= error)
+      ~err:(error_at pos)
   | BinOp (pos, op, e1, e2) ->
     (let* (env1, e1') = interpret env e1 in
     let* (env2, e2') = interpret env1 e2 in
@@ -86,11 +88,10 @@ let rec interpret env expr =
       Error.trace "Invalid binary operation" pos >>= error
     )
   | UnaryOp (pos, op, expr) ->
-    (let* (env', expr') = interpret env expr in
+    let* (env', expr') = interpret env expr in
     Result.fold (interpret_unary_op op expr')
       ~ok:(fun expr' -> ok (env', expr'))
-      ~error:(fun errmsg ->  Error.trace errmsg pos >>= error)
-    )
+      ~error:(error_at pos)
   | Local (_, vars) ->
     let acc_fun env (varname, expr) = Env.Map.add varname expr env in
     let env' = List.fold_left acc_fun env vars
@@ -102,35 +103,13 @@ let rec interpret env expr =
     | [expr] -> interpret env expr
     | (expr :: exprs) -> interpret env expr >>= fun (env', _) -> interpret env' (Seq exprs))
   | IndexedExpr (pos, varname, index_expr) ->
-    Env.find_var varname env
-      ~succ:(fun env' expr ->
-      match expr with
-      | Array (_, exprs) ->
-        let* (env', idx_expr') = interpret env' index_expr in
-        (match idx_expr' with
-        | Number (_, Int i)->
-          (let len = List.length exprs in
-          if i >= 0 && i < len
-          then ok (env', List.nth exprs i)
-          else Error.trace ("Index out of bounds. Trying to access index " ^ string_of_int i ^ " but \"" ^ varname ^ "\" length is " ^ string_of_int len) pos >>= error)
-        | expr' -> Error.trace ("Expected Integer index, got " ^ Ast.string_of_type expr') pos >>= error
-        )
-      | String (_, s) ->
-        let* (env', idx_expr') = interpret env' index_expr in
-        (match idx_expr' with
-        | Number (_, Int i) ->
-          (let len = String.length s in
-          if i >= 0 && i < len
-          then
-            let char_str = String.make 1 (String.get s i) in
-            ok (env', String (dummy_pos, char_str))
-          else
-            Error.trace ("Index out of bounds. Trying to access index " ^ string_of_int i ^ " but \"" ^ varname ^ "\" length is " ^ string_of_int len) pos >>= error)
-        | expr' -> Error.trace ("Expected Integer index, got " ^ Ast.string_of_type expr') pos >>= error
-        )
-      | evaluated_expr -> Error.trace (string_of_type evaluated_expr ^ " is a non indexable value") pos >>= error
+    let* (env', index_expr') = interpret env index_expr in
+    Env.find_var varname env'
+      ~succ:(fun env' expr -> Result.fold (Indexable.get index_expr' expr)
+        ~ok:(fun e -> interpret env' e)
+        ~error:(error_at pos)
       )
-      ~err:(fun err_msg -> Error.trace err_msg pos >>= error)
+      ~err:(error_at pos)
 
 let run (filename: string) : (string, string) result =
   let env = Env.Map.empty in

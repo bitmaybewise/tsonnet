@@ -45,7 +45,7 @@
   [1]
 
   $ tsonnet ../../samples/errors/array_index_out_of_bounds.jsonnet
-  ../../samples/errors/array_index_out_of_bounds.jsonnet:3:0 Index out of bounds. Trying to access index 4 but "list" length is 3
+  ../../samples/errors/array_index_out_of_bounds.jsonnet:3:0 Index out of bounds. Trying to access index 4 but length is 3
   
   3: list[index]
      ^^^^^^^^^^^
@@ -66,7 +66,7 @@
   [1]
 
   $ tsonnet ../../samples/errors/string_index_out_of_bounds.jsonnet
-  ../../samples/errors/string_index_out_of_bounds.jsonnet:2:0 Index out of bounds. Trying to access index 1234 but "name" length is 7
+  ../../samples/errors/string_index_out_of_bounds.jsonnet:2:0 Index out of bounds. Trying to access index 1234 but length is 7
   
   2: name[1234]
      ^^^^^^^^^^
