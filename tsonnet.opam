@@ -5,12 +5,12 @@ description: "Like Jsonnet, but gradually typed"
 maintainer: ["@bitmaybewise"]
 authors: ["@bitmaybewise"]
 license: "LICENSE"
-tags: ["jsonnet" "interpreter" "compiler"]
+tags: ["jsonnet" "interpreter" "compiler" "config"]
 homepage: "https://gitlab.com/bitmaybewise/tsonnet"
 doc: "https://gitlab.com/bitmaybewise/tsonnet"
 bug-reports: "https://gitlab.com/bitmaybewise/tsonnet/-/issues"
 depends: [
-  "ocaml" {>= "5.1.1"}
+  "ocaml" {>= "5.3.0"}
   "dune" {>= "3.16" & >= "3.16.0"}
   "menhir" {= "20240715"}
   "alcotest" {with-test & >= "1.8.0"}

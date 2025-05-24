@@ -17,6 +17,7 @@ clean:
 .PHONY: prepare-dev-setup
 prepare-dev-setup:
 	mise install
+	opam install ocaml dune utop ocamlformat ocaml-lsp-server alcotest
 
 .PHONY: explain
 explain:

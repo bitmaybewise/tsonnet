@@ -21,7 +21,7 @@
  (description "Like Jsonnet, but gradually typed")
  (depends
   (ocaml
-   (>= 5.1.1))
+   (>= 5.3.0))
   (dune
    (>= 3.16.0))
   (menhir
@@ -37,7 +37,7 @@
   (yojson
    (>= 2.2.2)))
  (tags
-  (jsonnet interpreter compiler)))
+  (jsonnet interpreter compiler config)))
 
 (using menhir 3.0)
 
