@@ -2,7 +2,9 @@
  (name tsonnet)
  (instrumentation
   (backend bisect_ppx))
- (libraries yojson))
+ (libraries yojson)
+ (preprocess
+  (pps ppx_deriving_qcheck)))
 
 (menhir
  (modules parser))

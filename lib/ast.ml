@@ -5,23 +5,32 @@ type bin_op =
   | Subtract
   | Multiply
   | Divide
+  [@@deriving qcheck]
 
 type unary_op =
   | Plus
   | Minus
   | Not
   | BitwiseNot
+  [@@deriving qcheck]
 
 type number =
   | Int of int
   | Float of float
+  [@@deriving qcheck]
 
 type position = {
   startpos: Lexing.position;
   endpos: Lexing.position;
 }
 
+let dummy_pos = {
+  startpos = Lexing.dummy_pos;
+  endpos = Lexing.dummy_pos;
+}
+
 type expr =
+  | Unit
   | Null of position
   | Number of position * number
   | Bool of position * bool
@@ -32,14 +41,8 @@ type expr =
   | BinOp of position * bin_op * expr * expr
   | UnaryOp of position * unary_op * expr
   | Local of position * (string * expr) list
-  | Unit
   | Seq of expr list
   | IndexedExpr of position * string * expr
-
-let dummy_pos = {
-  startpos = Lexing.dummy_pos;
-  endpos = Lexing.dummy_pos;
-}
 
 let dummy_expr = Unit
 

@@ -17,7 +17,8 @@ clean:
 .PHONY: prepare-dev-setup
 prepare-dev-setup:
 	mise install
-	opam install ocaml dune utop ocamlformat ocaml-lsp-server alcotest
+	opam install dune utop ocamlformat ocaml-lsp-server
+	opam install --deps-only --with-test .
 
 .PHONY: explain
 explain:
