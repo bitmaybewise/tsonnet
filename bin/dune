@@ -1,7 +1,9 @@
 (executable
  (public_name tsonnet)
  (name main)
- (libraries tsonnet))
+ (libraries tsonnet)
+ (instrumentation
+  (backend bisect_ppx)))
 
 (cram
  (deps

@@ -1,8 +1,10 @@
-# tsonnet
+# Tsonnet
 
 Like [Jsonnet](https://jsonnet.org/), but [gradually typed](https://en.wikipedia.org/wiki/Gradual_typing).
 
 "How hard could it be?" -- Myself speaking in an arrogant tone before realizing what I'm getting into XD
+
+![coverage](https://gitlab.com/bitmaybewise/tsonnet/badges/main/coverage.svg?job=coverage)
 
 ## Goal
 

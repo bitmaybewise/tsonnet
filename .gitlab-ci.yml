@@ -1,0 +1,47 @@
+stages:
+  - build
+  - test
+
+variables:
+  IMAGE: ocaml/opam:alpine-ocaml-5.3
+  COVERAGE_DIR: "_coverage"
+
+build-job:
+  image: $IMAGE
+  stage: build
+  script:
+    - opam install dune
+    - opam install --deps-only --with-test .
+    - make build
+  artifacts:
+    paths:
+      - _opam/
+      - _build/
+      - ~/.opam/download-cache/
+
+test-job:
+  image: $IMAGE
+  stage: test
+  dependencies:
+    - build-job
+  script:
+    - opam install dune
+    - opam install --deps-only --with-test .
+    - make test
+
+coverage-job:
+  image: $IMAGE
+  stage: test
+  # rules:
+  #   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  dependencies:
+    - test-job
+  script:
+    - opam install dune
+    - opam install --deps-only --with-test .
+    - make coverage
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: "${COVERAGE_DIR}/cobertura.xml"

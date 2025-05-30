@@ -1,4 +1,10 @@
+COVERAGE_DIR = $(shell pwd)/_coverage/
+
 default: test
+
+.PHONY: build
+build:
+	dune build
 
 .PHONY: test
 test:
@@ -6,13 +12,13 @@ test:
 
 .PHONY: coverage
 coverage:
-	dune runtest --instrument-with bisect_ppx --force
-	bisect-ppx-report html
-
-.PHONY: clean
-clean:
 	dune clean
-	rm -rf _coverage/
+	rm -rf $(COVERAGE_DIR)
+	mkdir $(COVERAGE_DIR)
+	BISECT_FILE=$(COVERAGE_DIR) dune runtest --instrument-with bisect_ppx --force
+	bisect-ppx-report html --coverage-path $(COVERAGE_DIR)
+	bisect-ppx-report cobertura $(COVERAGE_DIR)/cobertura.xml --coverage-path $(COVERAGE_DIR)
+	bisect-ppx-report summary --coverage-path $(COVERAGE_DIR)
 
 .PHONY: prepare-dev-setup
 prepare-dev-setup:
