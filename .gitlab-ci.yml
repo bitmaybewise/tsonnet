@@ -3,42 +3,42 @@ stages:
   - test
 
 variables:
-  IMAGE: ocaml/opam:alpine-ocaml-5.3
   COVERAGE_DIR: "_coverage"
+  TSONNET_DOCKER_IMAGE: $CI_REGISTRY_IMAGE:latest
+
+build-docker-image-job:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker pull $TSONNET_DOCKER_IMAGE || true
+    - docker build --cache-from $TSONNET_DOCKER_IMAGE -t $TSONNET_DOCKER_IMAGE .
+    - docker push $TSONNET_DOCKER_IMAGE
 
 build-job:
-  image: $IMAGE
+  image: $TSONNET_DOCKER_IMAGE
   stage: build
+  needs:
+    - build-docker-image-job
   script:
-    - opam install dune
-    - opam install --deps-only --with-test .
     - make build
-  artifacts:
-    paths:
-      - _opam/
-      - _build/
-      - ~/.opam/download-cache/
 
 test-job:
-  image: $IMAGE
+  image: $TSONNET_DOCKER_IMAGE
   stage: test
-  dependencies:
-    - build-job
+  needs:
+    - build-docker-image-job
   script:
-    - opam install dune
-    - opam install --deps-only --with-test .
     - make test
 
 coverage-job:
-  image: $IMAGE
+  image: $TSONNET_DOCKER_IMAGE
   stage: test
-  # rules:
-  #   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  dependencies:
+  needs:
     - test-job
   script:
-    - opam install dune
-    - opam install --deps-only --with-test .
     - make coverage
   artifacts:
     reports:
