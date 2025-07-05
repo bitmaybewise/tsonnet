@@ -1,5 +1,6 @@
 open Ast
 open Result
+open Syntax_sugar
 
 let enumerate_error_lines filename position ~highlight_error =
   let channel = open_in filename in
@@ -65,3 +66,5 @@ let trace (err: string) (pos: position) : (string, string) result =
   bind
     (enumerate_error_lines pos.startpos.pos_fname pos ~highlight_error: plot_caret)
     (fun content -> ok (Printf.sprintf "%s\n%s" (trace_file_position err pos) content))
+
+let error_at pos = fun msg -> trace msg pos >>= error

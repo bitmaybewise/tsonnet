@@ -41,8 +41,6 @@ let interpret_unary_op (op: unary_op) (evaluated_expr: expr) =
   | BitwiseNot, Number (pos, Int i) -> ok (Number (pos, Int (lnot i)))
   | _ -> error "Invalid unary operation"
 
-let error_at pos = fun msg -> Error.trace msg pos >>= error
-
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
   match expr with
@@ -60,7 +58,7 @@ let rec interpret env expr =
   | Ident (pos, varname) ->
     Env.find_var varname env
       ~succ:(fun env' expr -> interpret env' expr)
-      ~err:(error_at pos)
+      ~err:(Error.error_at pos)
   | BinOp (pos, op, e1, e2) ->
     (let* (env1, e1') = interpret env e1 in
     let* (env2, e2') = interpret env1 e2 in
@@ -77,7 +75,7 @@ let rec interpret env expr =
     let* (env', expr') = interpret env expr in
     Result.fold (interpret_unary_op op expr')
       ~ok:(fun expr' -> ok (env', expr'))
-      ~error:(error_at pos)
+      ~error:(Error.error_at pos)
   | Local (_, vars) ->
     let acc_fun env (varname, expr) = Env.Map.add varname expr env in
     let env' = List.fold_left acc_fun env vars
@@ -93,9 +91,9 @@ let rec interpret env expr =
     Env.find_var varname env'
       ~succ:(fun env' expr -> Result.fold (Indexable.get index_expr' expr)
         ~ok:(fun e -> interpret env' e)
-        ~error:(error_at pos)
+        ~error:(Error.error_at pos)
       )
-      ~err:(error_at pos)
+      ~err:(Error.error_at pos)
 
 let eval expr =
   let* (_env, evaluated_expr) = interpret Env.empty expr

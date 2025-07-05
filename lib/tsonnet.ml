@@ -17,5 +17,6 @@ let parse (filename: string) =
 
 let run (filename: string) : (string, string) result =
   parse filename
+    >>= Type.check
     >>= Interpreter.eval
     >>= Json.expr_to_string
