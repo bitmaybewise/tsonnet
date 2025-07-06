@@ -54,6 +54,17 @@ let rec translate expr venv =
           rest
       in ok (venv, Tarray ty)
     )
+  | Object (_pos, elems) ->
+    let* fields =
+      List.fold_left
+        (fun acc (attr, expr) ->
+          let* attrs = acc in
+          let* (_, ty) = translate expr venv in
+          ok ((attr, ty) :: attrs)
+        )
+        (ok [])
+        elems
+    in ok (venv, Tobject fields)
   | Local (_, vars) ->
     let venv' =
       (List.fold_left
