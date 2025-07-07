@@ -81,6 +81,14 @@ let rec translate expr venv =
       (fun acc expr -> acc >>= fun (venv, _) -> translate expr venv)
       (ok (venv, Tunit))
       exprs
+  | BinOp (pos, op, e1, e2) ->
+    (let* (venv', e1') = translate e1 venv in
+    let* (venv'', e2') = translate e2 venv' in
+    match op, e1', e2' with
+    | _, Tnumber, Tnumber -> ok (venv'', Tnumber)
+    | Add, _, Tstring | Add, Tstring, _ -> ok (venv'', Tstring)
+    | _ -> Error.trace "Invalid binary operation" pos >>= error
+    )
   | _ -> error "Not yet implemented"
 
 let check expr =
