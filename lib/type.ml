@@ -34,6 +34,7 @@ let translate_late_binding translate_fun = fun venv expr ->
 
 let rec translate expr venv =
   match expr with
+  | Unit -> ok (venv, Tunit)
   | Null _ -> ok (venv, Tnull)
   | Bool _ -> ok (venv, Tbool)
   | Number _ -> ok (venv, Tnumber)
@@ -125,7 +126,6 @@ let rec translate expr venv =
         ~err:(Error.error_at pos)
     | ty -> Error.trace ("Expected Integer index, got " ^ to_string ty) pos >>= error
     )
-  | _ -> error "Not yet implemented"
 
 let check expr =
   translate expr Env.empty >>= fun _ -> ok expr
