@@ -89,9 +89,11 @@ let rec interpret env expr =
   | IndexedExpr (pos, varname, index_expr) ->
     let* (env', index_expr') = interpret env index_expr in
     Env.find_var varname env'
-      ~succ:(fun env' expr -> Result.fold (Indexable.get index_expr' expr)
-        ~ok:(fun e -> interpret env' e)
-        ~error:(Error.error_at pos)
+      ~succ:(fun env' expr ->
+        Result.fold
+          (Indexable.get index_expr' expr)
+          ~ok:(fun e -> interpret env' e)
+          ~error:(Error.error_at pos)
       )
       ~err:(Error.error_at pos)
 

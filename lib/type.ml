@@ -13,6 +13,20 @@ type tsonnet_type =
   | Tobject of (string * tsonnet_type) list
   | Lazy of expr
 
+let rec to_string = function
+  | Tunit -> "()"
+  | Tnull -> "null"
+  | Tbool -> "Bool"
+  | Tnumber -> "Number"
+  | Tstring -> "String"
+  | Tany -> "Any"
+  | Tarray ty -> "Tarray " ^ to_string ty
+  | Tobject fields ->
+    "{" ^ (
+      String.concat ", " (List.map (fun (field, ty) -> field ^ " : " ^ to_string ty) fields)
+    ) ^ "}"
+  | Lazy ty -> string_of_type ty
+
 let translate_late_binding translate_fun = fun venv expr ->
   match expr with
   | Lazy expr -> translate_fun expr venv
@@ -41,14 +55,14 @@ let rec translate expr venv =
     (match elems with
     | [] -> ok (venv, Tany)
     | elem :: rest ->
-      let* (venv, ty) = translate elem venv in
+      let ty = Lazy elem in
       let* (venv, ty) =
         List.fold_left
           (fun acc elem -> acc >>= fun (venv, ty) ->
-            let* (venv', elem_ty) = translate elem venv in
+            let elem_ty = Lazy elem in
             if ty = elem_ty
-            then ok (venv', elem_ty)
-            else ok (venv', Tany)
+            then ok (venv, elem_ty)
+            else ok (venv, Tany)
           )
           (ok (venv, ty))
           rest
@@ -95,6 +109,21 @@ let rec translate expr venv =
     | Plus, Tnumber | Minus, Tnumber | BitwiseNot, Tnumber -> ok (venv', Tnumber)
     | Not, Tbool | BitwiseNot, Tbool -> ok (venv', Tbool)
     | _ -> Error.trace "Invalid unary operation" pos >>= error
+    )
+  | IndexedExpr (pos, varname, index_expr) ->
+    (let* (venv', index_expr') = translate index_expr venv in
+    match index_expr' with
+    | Tnumber ->
+      Env.find_var varname venv'
+        ~succ:(fun venv' expr' ->
+          match expr' with
+          | (Tarray _) as ty -> ok (venv', ty)
+          | Tstring as ty -> ok (venv', ty)
+          | Lazy expr -> translate expr venv
+          | ty -> error (to_string ty ^ " is a non indexable value")
+        )
+        ~err:(Error.error_at pos)
+    | ty -> Error.trace ("Expected Integer index, got " ^ to_string ty) pos >>= error
     )
   | _ -> error "Not yet implemented"
 
