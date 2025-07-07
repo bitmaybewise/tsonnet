@@ -89,6 +89,13 @@ let rec translate expr venv =
     | Add, _, Tstring | Add, Tstring, _ -> ok (venv'', Tstring)
     | _ -> Error.trace "Invalid binary operation" pos >>= error
     )
+  | UnaryOp (pos, op, expr) ->
+    (let* (venv', expr') = translate expr venv in
+    match op, expr' with
+    | Plus, Tnumber | Minus, Tnumber | BitwiseNot, Tnumber -> ok (venv', Tnumber)
+    | Not, Tbool | BitwiseNot, Tbool -> ok (venv', Tbool)
+    | _ -> Error.trace "Invalid unary operation" pos >>= error
+    )
   | _ -> error "Not yet implemented"
 
 let check expr =
