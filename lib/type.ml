@@ -15,22 +15,41 @@ type tsonnet_type =
 
 let rec to_string = function
   | Tunit -> "()"
-  | Tnull -> "null"
+  | Tnull -> "Null"
   | Tbool -> "Bool"
   | Tnumber -> "Number"
   | Tstring -> "String"
   | Tany -> "Any"
-  | Tarray ty -> "Tarray " ^ to_string ty
+  | Tarray ty -> "Array of " ^ to_string ty
   | Tobject fields ->
     "{" ^ (
       String.concat ", " (List.map (fun (field, ty) -> field ^ " : " ^ to_string ty) fields)
     ) ^ "}"
   | Lazy ty -> string_of_type ty
 
-let translate_late_binding translate_fun = fun venv expr ->
+let rec check_cyclic_refs venv varname seen pos =
+  if List.mem varname seen
+  then
+    Error.trace ("Cyclic reference found for " ^ varname) pos >>= error
+  else
+    match Env.Map.find_opt varname venv with
+    | Some (Lazy expr) -> check_expr_for_cycles venv expr (varname :: seen)
+    | _ -> ok ()
+and check_expr_for_cycles venv expr seen =
   match expr with
-  | Lazy expr -> translate_fun expr venv
-  | _ -> error "Expected a lazy evaluated expression"
+  | Unit | Null _ | Number _ | String _ | Bool _ -> ok ()
+  | Array (_, exprs) -> iter_for_cycles venv seen exprs
+  | Object (_, fields) -> iter_for_cycles venv seen (List.map snd fields)
+  | Ident (pos, varname) -> check_cyclic_refs venv varname seen pos
+  | BinOp (_, _, e1, e2) -> iter_for_cycles venv seen [e1; e2]
+  | UnaryOp (_, _, e) -> check_expr_for_cycles venv e seen
+  | Seq exprs -> iter_for_cycles venv seen exprs
+  | _ -> ok ()
+and iter_for_cycles venv seen exprs =
+  List.fold_left
+    (fun ok' expr -> ok' >>= fun _ -> (check_expr_for_cycles venv expr seen))
+    (ok ())
+    exprs
 
 let rec translate expr venv =
   match expr with
@@ -41,7 +60,11 @@ let rec translate expr venv =
   | String _ -> ok (venv, Tstring)
   | Ident (pos, varname) ->
     Env.find_var varname venv
-      ~succ:(translate_late_binding translate)
+      ~succ:(fun venv ty ->
+        match ty with
+        | Lazy expr -> translate expr venv
+        | _ -> ok (venv, ty)
+      )
       ~err:(Error.error_at pos)
   | Array (_pos, elems) ->
     (* As of now, we compare each element and if all have the same type,
@@ -80,16 +103,17 @@ let rec translate expr venv =
         (ok [])
         elems
     in ok (venv, Tobject fields)
-  | Local (_, vars) ->
-    let venv' =
-      (List.fold_left
-        (fun venv (varname, var_expr) ->
-          (* Adds an expr to the env to be evaluated at a later point in time (when required) *)
-          Env.Map.add varname (Lazy var_expr) venv
-        )
-        venv
-        vars
-      )
+  | Local (pos, vars) ->
+    let venv' = List.fold_left
+      (* Adds an expr to the env to be evaluated at a later point in time (when required) *)
+      (fun venv (varname, var_expr) -> Env.Map.add varname (Lazy var_expr) venv)
+      venv
+      vars
+    in
+    let* _ = List.fold_left
+      (fun ok' (varname, _) -> ok' >>= fun _ -> check_cyclic_refs venv' varname [] pos)
+      (ok ())
+      vars
     in ok (venv', Tunit)
   | Seq exprs ->
     List.fold_left
