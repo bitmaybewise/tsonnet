@@ -4,7 +4,7 @@ synopsis: "A typed Jsonnet"
 description: "Like Jsonnet, but gradually typed"
 maintainer: ["@bitmaybewise"]
 authors: ["@bitmaybewise"]
-license: "LICENSE"
+license: "Apache-2.0"
 tags: ["jsonnet" "interpreter" "compiler" "config"]
 homepage: "https://gitlab.com/bitmaybewise/tsonnet"
 doc: "https://gitlab.com/bitmaybewise/tsonnet"

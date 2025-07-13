@@ -11,7 +11,7 @@
 
 (maintainers "@bitmaybewise")
 
-(license LICENSE)
+(license Apache-2.0)
 
 (documentation https://gitlab.com/bitmaybewise/tsonnet)
 
