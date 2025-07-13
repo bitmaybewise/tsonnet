@@ -13,12 +13,12 @@ depends: [
   "ocaml" {>= "5.3.0"}
   "dune" {>= "3.16" & >= "3.16.0"}
   "menhir" {= "20240715"}
-  "alcotest" {with-test & >= "1.8.0"}
-  "qcheck-core" {with-test & >= "0.25"}
-  "qcheck-alcotest" {with-test & >= "0.25"}
-  "ppx_deriving_qcheck" {with-test & >= "0.6"}
-  "bisect_ppx" {with-test & >= "2.8.3"}
-  "yojson" {>= "2.2.2"}
+  "alcotest" {with-test & >= "1.8.0" & < "2.0.0"}
+  "qcheck-core" {with-test & = "0.25"}
+  "qcheck-alcotest" {with-test & = "0.25"}
+  "ppxlib" {with-test & = "0.36.0"}
+  "ppx_deriving_qcheck" {with-test}
+  "yojson" {>= "2.2.2" & < "3.0.0"}
   "odoc" {with-doc}
 ]
 build: [

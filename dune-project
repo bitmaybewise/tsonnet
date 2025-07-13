@@ -29,25 +29,30 @@
   (alcotest
    (and
     :with-test
-    (>= 1.8.0)))
+    (>= 1.8.0)
+    (< 2.0.0)))
   (qcheck-core
    (and
     :with-test
-    (>= 0.25)))
+    (= 0.25)))
   (qcheck-alcotest
    (and
     :with-test
-    (>= 0.25)))
+    (= 0.25)))
+  (ppxlib
+   (and
+    :with-test
+    (= 0.36.0)))
   (ppx_deriving_qcheck
-   (and
-    :with-test
-    (>= 0.6)))
-  (bisect_ppx
-   (and
-    :with-test
-    (>= 2.8.3)))
+   (and :with-test))
+  ; (bisect_ppx
+  ;  (and
+  ;   :with-test
+  ;   (= 2.8.3)))
   (yojson
-   (>= 2.2.2)))
+   (and
+    (>= 2.2.2)
+    (< 3.0.0))))
  (tags
   (jsonnet interpreter compiler config)))
 

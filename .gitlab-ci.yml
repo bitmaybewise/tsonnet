@@ -33,15 +33,15 @@ test-job:
   script:
     - make test
 
-coverage-job:
-  image: $TSONNET_DOCKER_IMAGE
-  stage: test
-  needs:
-    - test-job
-  script:
-    - make coverage
-  artifacts:
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: "${COVERAGE_DIR}/cobertura.xml"
+# coverage-job:
+#   image: $TSONNET_DOCKER_IMAGE
+#   stage: test
+#   needs:
+#     - test-job
+#   script:
+#     - make coverage
+#   artifacts:
+#     reports:
+#       coverage_report:
+#         coverage_format: cobertura
+#         path: "${COVERAGE_DIR}/cobertura.xml"
