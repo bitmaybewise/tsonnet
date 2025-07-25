@@ -4,7 +4,7 @@ Using the Tsonnet program:
   42
 
   $ tsonnet ../samples/literals/string.jsonnet
-  "Hello, world!"
+  "Hello, world! Here's \"Tsonnet\"."
 
   $ tsonnet ../samples/literals/object.jsonnet
   {

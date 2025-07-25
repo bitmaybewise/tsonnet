@@ -28,7 +28,8 @@ rule read =
   | float { FLOAT (float_of_string (Lexing.lexeme lexbuf)) }
   | null { NULL }
   | bool { BOOL (bool_of_string (Lexing.lexeme lexbuf)) }
-  | '"' { read_string (Buffer.create 16) lexbuf }
+  | '"' { read_double_quoted_string (Buffer.create 16) lexbuf }
+  | '\'' { read_single_quoted_string (Buffer.create 16) lexbuf }
   | '[' { LEFT_SQR_BRACKET }
   | ']' { RIGHT_SQR_BRACKET }
   | '{' { LEFT_CURLY_BRACKET }
@@ -49,19 +50,39 @@ rule read =
   | id { ID (Lexing.lexeme lexbuf) }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }
-and read_string buf =
+and read_double_quoted_string buf =
   parse
+  | '\\' '"'  { Buffer.add_char buf '"'; read_double_quoted_string buf lexbuf }
+  | '\\' '\''  { Buffer.add_char buf '\''; read_double_quoted_string buf lexbuf }
+  | '\\' '/'  { Buffer.add_char buf '/'; read_double_quoted_string buf lexbuf }
+  | '\\' '\\' { Buffer.add_char buf '\\'; read_double_quoted_string buf lexbuf }
+  | '\\' 'b'  { Buffer.add_char buf '\b'; read_double_quoted_string buf lexbuf }
+  | '\\' 'f'  { Buffer.add_char buf '\012'; read_double_quoted_string buf lexbuf }
+  | '\\' 'n'  { Buffer.add_char buf '\n'; read_double_quoted_string buf lexbuf }
+  | '\\' 'r'  { Buffer.add_char buf '\r'; read_double_quoted_string buf lexbuf }
+  | '\\' 't'  { Buffer.add_char buf '\t'; read_double_quoted_string buf lexbuf }
   | '"' { STRING (Buffer.contents buf) }
-  | '\\' '/'  { Buffer.add_char buf '/'; read_string buf lexbuf }
-  | '\\' '\\' { Buffer.add_char buf '\\'; read_string buf lexbuf }
-  | '\\' 'b'  { Buffer.add_char buf '\b'; read_string buf lexbuf }
-  | '\\' 'f'  { Buffer.add_char buf '\012'; read_string buf lexbuf }
-  | '\\' 'n'  { Buffer.add_char buf '\n'; read_string buf lexbuf }
-  | '\\' 'r'  { Buffer.add_char buf '\r'; read_string buf lexbuf }
-  | '\\' 't'  { Buffer.add_char buf '\t'; read_string buf lexbuf }
   | [^ '"' '\\']+
     { Buffer.add_string buf (Lexing.lexeme lexbuf);
-      read_string buf lexbuf
+      read_double_quoted_string buf lexbuf
+    }
+  | _ { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
+  | eof { raise (SyntaxError ("String is not terminated")) }
+and read_single_quoted_string buf =
+  parse
+  | '\\' '"'  { Buffer.add_char buf '"'; read_single_quoted_string buf lexbuf }
+  | '\\' '\''  { Buffer.add_char buf '\''; read_single_quoted_string buf lexbuf }
+  | '\\' '/'  { Buffer.add_char buf '/'; read_single_quoted_string buf lexbuf }
+  | '\\' '\\' { Buffer.add_char buf '\\'; read_single_quoted_string buf lexbuf }
+  | '\\' 'b'  { Buffer.add_char buf '\b'; read_single_quoted_string buf lexbuf }
+  | '\\' 'f'  { Buffer.add_char buf '\012'; read_single_quoted_string buf lexbuf }
+  | '\\' 'n'  { Buffer.add_char buf '\n'; read_single_quoted_string buf lexbuf }
+  | '\\' 'r'  { Buffer.add_char buf '\r'; read_single_quoted_string buf lexbuf }
+  | '\\' 't'  { Buffer.add_char buf '\t'; read_single_quoted_string buf lexbuf }
+  | '\'' { STRING (Buffer.contents buf) }
+  | [^ '\'' '\\']+
+    { Buffer.add_string buf (Lexing.lexeme lexbuf);
+      read_single_quoted_string buf lexbuf
     }
   | _ { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
   | eof { raise (SyntaxError ("String is not terminated")) }

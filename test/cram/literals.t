@@ -20,7 +20,10 @@
   null
 
   $ tsonnet ../../samples/literals/string.jsonnet
-  "Hello, world!"
+  "Hello, world! Here's \"Tsonnet\"."
+
+  $ tsonnet ../../samples/literals/string_single_quote.jsonnet
+  "Hello, world! Here's \"Tsonnet\"."
 
   $ tsonnet ../../samples/literals/array.jsonnet
   [ 1, 2.0, "hi", null ]
