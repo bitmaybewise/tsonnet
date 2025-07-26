@@ -65,20 +65,30 @@ literal:
   | b = BOOL { Bool (with_pos $startpos $endpos, b) }
   | s = STRING { String (with_pos $startpos $endpos, s) }
   | id = ID { Ident (with_pos $startpos $endpos, id) }
-  | LEFT_SQR_BRACKET; values = list_fields; RIGHT_SQR_BRACKET { Array (with_pos $startpos $endpos, values) }
-  | LEFT_CURLY_BRACKET; attrs = obj_fields; RIGHT_CURLY_BRACKET { Object (with_pos $startpos $endpos, attrs) }
+  | LEFT_SQR_BRACKET; values = array_field_list; RIGHT_SQR_BRACKET { Array (with_pos $startpos $endpos, values) }
+  | LEFT_CURLY_BRACKET; attrs = obj_field_list; RIGHT_CURLY_BRACKET; { Object (with_pos $startpos $endpos, attrs) }
   ;
 
-list_fields:
-  vl = separated_list(COMMA, assignable_expr) { vl };
+array_field_list:
+  | { [] }
+  | e = assignable_expr { [e] }
+  | e = assignable_expr; COMMA; es = array_field_list { e :: es }
+  ;
+
+obj_key:
+  | k = STRING { k }
+  | k = ID { k }
+  ;
 
 obj_field:
-  | k = STRING; COLON; e = assignable_expr { (k, e) }
-  | k = ID; COLON; e = assignable_expr { (k, e) }
+  | k = obj_key; COLON; e = assignable_expr { (k, e) }
   ;
 
-obj_fields:
-  obj = separated_list(COMMA, obj_field) { obj };
+obj_field_list:
+  | { [] }
+  | obj_field { [$1] }
+  | f = obj_field; COMMA; fs = obj_field_list { f :: fs }
+  ;
 
 %inline number:
   | i = INT { Int i }
