@@ -4,6 +4,10 @@
   open Parser
   exception SyntaxError of string
 
+  let string_not_terminated = SyntaxError ("String is not terminated")
+
+  let illegal_string_char invalid = SyntaxError ("Illegal string character: " ^ invalid)
+
   let verbatim_string s =
     (String.split_on_char '\n' s)
     |> List.drop_while (fun line -> line = "")
@@ -37,6 +41,8 @@ rule read =
   | '"' { read_double_quoted_string (Buffer.create 16) lexbuf }
   | '\'' { read_single_quoted_string (Buffer.create 16) lexbuf }
   | "|||" { read_verbatim_string (Buffer.create 16) lexbuf }
+  | "@\"" { read_single_line_verbatim_double_quoted_string (Buffer.create 16) lexbuf }
+  | "@'" { read_single_line_verbatim_single_quoted_string (Buffer.create 16) lexbuf }
   | '[' { LEFT_SQR_BRACKET }
   | ']' { RIGHT_SQR_BRACKET }
   | '{' { LEFT_CURLY_BRACKET }
@@ -73,8 +79,8 @@ and read_double_quoted_string buf =
     { Buffer.add_string buf (Lexing.lexeme lexbuf);
       read_double_quoted_string buf lexbuf
     }
-  | _ { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
-  | eof { raise (SyntaxError ("String is not terminated")) }
+  | _ { raise (illegal_string_char (Lexing.lexeme lexbuf)) }
+  | eof { raise string_not_terminated }
 and read_single_quoted_string buf =
   parse
   | '\\' '"'  { Buffer.add_char buf '"'; read_single_quoted_string buf lexbuf }
@@ -91,14 +97,26 @@ and read_single_quoted_string buf =
     { Buffer.add_string buf (Lexing.lexeme lexbuf);
       read_single_quoted_string buf lexbuf
     }
-  | _ { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
-  | eof { raise (SyntaxError ("String is not terminated")) }
+  | _ { raise (illegal_string_char (Lexing.lexeme lexbuf)) }
+  | eof { raise string_not_terminated }
+and read_single_line_verbatim_single_quoted_string buf =
+  parse
+  | '\'' { STRING (verbatim_string (Buffer.contents buf)) }
+  | _ as c  { Buffer.add_char buf c; read_single_line_verbatim_single_quoted_string buf lexbuf }
+  | _ { raise (illegal_string_char (Lexing.lexeme lexbuf)) }
+  | eof { raise string_not_terminated }
+and read_single_line_verbatim_double_quoted_string buf =
+  parse
+  | '"' { STRING (verbatim_string (Buffer.contents buf)) }
+  | _ as c  { Buffer.add_char buf c; read_single_line_verbatim_double_quoted_string buf lexbuf }
+  | _ { raise (illegal_string_char (Lexing.lexeme lexbuf)) }
+  | eof { raise string_not_terminated }
 and read_verbatim_string buf =
   parse
   | "|||" { STRING (verbatim_string (Buffer.contents buf)) }
   | _ as c  { Buffer.add_char buf c; read_verbatim_string buf lexbuf }
-  | _ { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
-  | eof { raise (SyntaxError ("String is not terminated")) }
+  | _ { raise (illegal_string_char (Lexing.lexeme lexbuf)) }
+  | eof { raise string_not_terminated }
 and block_comment =
   parse
   | "*/" { read lexbuf }

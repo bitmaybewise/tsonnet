@@ -28,6 +28,12 @@
   $ tsonnet ../../samples/literals/string_raw.jsonnet
   "Hi stranger, this is a\nmulti-line verbatim string,\nalso called raw-string or\nliteral string.\n"
 
+  $ tsonnet ../../samples/literals/string_raw_single_line.jsonnet
+  "Hello, stranger!"
+
+  $ tsonnet ../../samples/literals/string_raw_single_line_single_quote.jsonnet
+  "Hello, stranger!"
+
   $ tsonnet ../../samples/literals/array.jsonnet
   [ 1, 2.0, "hi", null ]
 
