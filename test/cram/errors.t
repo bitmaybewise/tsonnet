@@ -12,6 +12,13 @@
      ^^^^^^^^^^^^^^^^^^^^^
   [1]
 
+  $ tsonnet ../../samples/errors/malformed_verbatim_string.jsonnet
+  ../../samples/errors/malformed_verbatim_string.jsonnet:1:18 String is not terminated
+  
+  1: local s = |||
+     ^^^^^^^^^^^^^
+  [1]
+
   $ tsonnet ../../samples/errors/sum_int_to_boolean.jsonnet
   ../../samples/errors/sum_int_to_boolean.jsonnet:1:0 Invalid binary operation
   

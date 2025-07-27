@@ -3,6 +3,12 @@
   open Lexing
   open Parser
   exception SyntaxError of string
+
+  let verbatim_string s =
+    (String.split_on_char '\n' s)
+    |> List.drop_while (fun line -> line = "")
+    |> List.map String.trim
+    |> String.concat "\n"
 }
 
 let white = [' ' '\t']+
@@ -30,6 +36,7 @@ rule read =
   | bool { BOOL (bool_of_string (Lexing.lexeme lexbuf)) }
   | '"' { read_double_quoted_string (Buffer.create 16) lexbuf }
   | '\'' { read_single_quoted_string (Buffer.create 16) lexbuf }
+  | "|||" { read_verbatim_string (Buffer.create 16) lexbuf }
   | '[' { LEFT_SQR_BRACKET }
   | ']' { RIGHT_SQR_BRACKET }
   | '{' { LEFT_CURLY_BRACKET }
@@ -84,6 +91,12 @@ and read_single_quoted_string buf =
     { Buffer.add_string buf (Lexing.lexeme lexbuf);
       read_single_quoted_string buf lexbuf
     }
+  | _ { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
+  | eof { raise (SyntaxError ("String is not terminated")) }
+and read_verbatim_string buf =
+  parse
+  | "|||" { STRING (verbatim_string (Buffer.contents buf)) }
+  | _ as c  { Buffer.add_char buf c; read_verbatim_string buf lexbuf }
   | _ { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
   | eof { raise (SyntaxError ("String is not terminated")) }
 and block_comment =
