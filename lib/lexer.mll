@@ -26,7 +26,7 @@ let null = "null"
 let bool = "true" | "false"
 let letter = ['a'-'z' 'A'-'Z']
 let id = (letter | '_') (letter | digit | '_')*
-let inline_comment = "//" [^ '\n']* newline | "#" [^ '\n']* newline
+let inline_comment = ("//" | "#") [^ '\n']* newline
 
 rule read =
   parse
