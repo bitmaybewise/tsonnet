@@ -10,8 +10,11 @@ type tsonnet_type =
   | Tstring
   | Tany
   | Tarray of tsonnet_type
-  | Tobject of (string * tsonnet_type) list
+  | Tobject of t_object_entry list
   | Lazy of expr
+and t_object_entry =
+  | TobjectField of string * tsonnet_type
+  | TobjectExpr of tsonnet_type
 
 let rec to_string = function
   | Tunit -> "()"
@@ -22,8 +25,12 @@ let rec to_string = function
   | Tany -> "Any"
   | Tarray ty -> "Array of " ^ to_string ty
   | Tobject fields ->
+    let field_to_string = function
+      | TobjectField (field, ty) -> field ^ " : " ^ to_string ty
+      | TobjectExpr ty -> to_string ty
+    in
     "{" ^ (
-      String.concat ", " (List.map (fun (field, ty) -> field ^ " : " ^ to_string ty) fields)
+      String.concat ", " (List.map field_to_string fields)
     ) ^ "}"
   | Lazy ty -> string_of_type ty
 
@@ -39,7 +46,15 @@ and check_expr_for_cycles venv expr seen =
   match expr with
   | Unit | Null _ | Number _ | String _ | Bool _ -> ok ()
   | Array (_, exprs) -> iter_for_cycles venv seen exprs
-  | Object (_, fields) -> iter_for_cycles venv seen (List.map snd fields)
+  | Object (_, entries) ->
+    List.fold_left
+      (fun ok entry -> ok >>= fun _ ->
+        match entry with
+        | ObjectField (_, expr) -> check_expr_for_cycles venv expr seen
+        | ObjectExpr expr -> check_expr_for_cycles venv expr seen
+      )
+      (ok ())
+      entries
   | Ident (pos, varname) -> check_cyclic_refs venv varname seen pos
   | BinOp (_, _, e1, e2) -> iter_for_cycles venv seen [e1; e2]
   | UnaryOp (_, _, e) -> check_expr_for_cycles venv e seen
@@ -93,14 +108,19 @@ let rec translate expr venv =
       in ok (venv, Tarray ty)
     )
   | Object (_pos, elems) ->
-    let* fields =
+    let* (fields, _) =
       List.fold_left
-        (fun acc (attr, expr) ->
-          let* attrs = acc in
-          let* (_, ty) = translate expr venv in
-          ok ((attr, ty) :: attrs)
+        (fun acc entry ->
+          let* (fields, venv) = acc in
+          match entry with
+          | ObjectField (attr, expr) ->
+              let* (venv', ty) = translate expr venv in
+              ok ((TobjectField (attr, ty)) :: fields, venv')
+          | ObjectExpr expr ->
+              let* (venv', _ty) = translate expr venv in
+              ok (fields, venv')
         )
-        (ok [])
+        (ok ([], venv))
         elems
     in ok (venv, Tobject fields)
   | Local (pos, vars) ->

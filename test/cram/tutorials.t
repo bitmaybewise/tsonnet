@@ -25,3 +25,26 @@
       }
     }
   }
+
+  $ tsonnet ../../samples/tutorials/variables.jsonnet
+  {
+    "Daiquiri": {
+      "ingredients": [
+        { "kind": "Banks Rum", "qty": 1.5 },
+        { "kind": "Lime", "qty": 1 },
+        { "kind": "Simple Syrup", "qty": 0.5 }
+      ],
+      "served": "Straight Up"
+    },
+    "Mojito": {
+      "ingredients": [
+        { "kind": "Mint", "action": "muddle", "qty": 6, "unit": "leaves" },
+        { "kind": "Banks Rum", "qty": 1.5 },
+        { "kind": "Lime", "qty": 0.5 },
+        { "kind": "Simple Syrup", "qty": 0.5 },
+        { "kind": "Soda", "qty": 3 }
+      ],
+      "garnish": "Lime wedge",
+      "served": "Over crushed ice"
+    }
+  }

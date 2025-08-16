@@ -66,7 +66,7 @@ literal:
   | s = STRING { String (with_pos $startpos $endpos, s) }
   | id = ID { Ident (with_pos $startpos $endpos, id) }
   | LEFT_SQR_BRACKET; values = array_field_list; RIGHT_SQR_BRACKET { Array (with_pos $startpos $endpos, values) }
-  | LEFT_CURLY_BRACKET; attrs = obj_field_list; RIGHT_CURLY_BRACKET; { Object (with_pos $startpos $endpos, attrs) }
+  | LEFT_CURLY_BRACKET; attrs = obj_field_list; RIGHT_CURLY_BRACKET { Object (with_pos $startpos $endpos, attrs) }
   ;
 
 array_field_list:
@@ -81,13 +81,14 @@ obj_key:
   ;
 
 obj_field:
-  | k = obj_key; COLON; e = assignable_expr { (k, e) }
+  | k = obj_key; COLON; e = assignable_expr { ObjectField (k, e) }
+  | e = single_var { ObjectExpr e }
   ;
 
 obj_field_list:
   | { [] }
   | obj_field { [$1] }
-  | f = obj_field; COMMA; fs = obj_field_list { f :: fs }
+  | f = obj_field; COMMA; fields = obj_field_list { f :: fields }
   ;
 
 %inline number:
@@ -114,3 +115,6 @@ var:
 
 vars:
   LOCAL; vars = separated_nonempty_list(COMMA, var) { Local (with_pos $startpos $endpos, vars) };
+
+single_var:
+  LOCAL; var_expr = var { Local (with_pos $startpos $endpos, [var_expr]) };

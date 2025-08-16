@@ -31,11 +31,22 @@ let rec gen_expr_sized n =
           (QCheck.Gen.list_size (QCheck.Gen.int_range 0 3) (gen_expr_sized (n-1)))
         );
         (2, QCheck.Gen.map2
-          (fun pos exprs -> Object (pos, exprs))
+          (fun pos entries -> Object (pos, entries))
           pos_gen
           (QCheck.Gen.list_size
             (QCheck.Gen.int_range 0 3)
-            (QCheck.Gen.pair QCheck.Gen.string (gen_expr_sized (n-1)))
+            (QCheck.Gen.oneof [
+              (QCheck.Gen.map
+                (fun expr -> ObjectExpr expr)
+                (gen_expr_sized (n-1))
+              );
+               (QCheck.Gen.map2
+                (fun field expr -> ObjectField (field, expr))
+                 QCheck.Gen.string
+                 (gen_expr_sized (n-1))
+               )
+            ]
+            )
           )
         );
         (1, QCheck.Gen.map4

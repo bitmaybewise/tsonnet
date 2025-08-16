@@ -37,12 +37,15 @@ type expr =
   | String of position * string
   | Ident of position * string
   | Array of position * expr list
-  | Object of position * (string * expr) list
+  | Object of position * object_entry list
   | BinOp of position * bin_op * expr * expr
   | UnaryOp of position * unary_op * expr
   | Local of position * (string * expr) list
   | Seq of expr list
   | IndexedExpr of position * string * expr
+and object_entry =
+  | ObjectField of string * expr
+  | ObjectExpr of expr
 
 let dummy_expr = Unit
 
