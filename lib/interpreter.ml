@@ -64,16 +64,7 @@ let rec interpret env expr =
   match expr with
   | Null _ | Bool _ | String _ | Number _ -> ok (env, expr)
   | Object (pos, entries) -> interpret_object env (pos, entries) interpret
-  | Array (pos, exprs) ->
-    (let rec eval' env' exprs' =
-      match exprs' with
-      | [] -> ok (env', [])
-      | e :: exprs ->
-        (let* (env1, expr') = interpret env' e in
-        let* (env2, rest) = eval' env1 exprs in
-        ok (env2, expr' :: rest))
-    in eval' env exprs >>= fun (env3, exprs') -> ok (env3, Array (pos, exprs'))
-    )
+  | Array (pos, exprs) -> interpret_array env (pos, exprs)
   | Ident (pos, varname) ->
     Env.find_var varname env
       ~succ:(fun env' expr -> interpret env' expr)
@@ -115,6 +106,17 @@ let rec interpret env expr =
           ~error:(Error.error_at pos)
       )
       ~err:(Error.error_at pos)
+
+and interpret_array env (pos, exprs) =
+  let* (env', evaluated_exprs) = List.fold_left
+    (fun result expr ->
+      let* (env', result') = result in
+      let* (env'', expr') = interpret env' expr in
+      ok (env'', result' @ [expr'])
+    )
+    (ok (env, []))
+    exprs
+  in ok (env', Array (pos, evaluated_exprs))
 
 let eval expr =
   let* (_env, evaluated_expr) = interpret Env.empty expr
