@@ -41,29 +41,11 @@ let interpret_unary_op (op: unary_op) (evaluated_expr: expr) =
   | BitwiseNot, Number (pos, Int i) -> ok (Number (pos, Int (lnot i)))
   | _ -> error "Invalid unary operation"
 
-let rec interpret_object env (pos, entries) interpret =
-  let* (result_env, evaluated_entries) = List.fold_left
-    (fun result entry ->
-      let* (env', entries') = result in
-      let* (env'', evaluated_entry) = interpret_entry env' entry interpret in
-      ok (env'', entries' @ [evaluated_entry])
-    )
-    (ok (env, []))
-    entries
-  in
-  ok (result_env, Object (pos, evaluated_entries))
-and interpret_entry env expr interpret =
-  match expr with
-  | ObjectExpr expr ->
-    interpret env expr >>= fun (env', expr') -> ok (env', ObjectExpr expr')
-  | ObjectField (varname, expr) ->
-    interpret env expr >>= fun (env', expr') -> ok (env', ObjectField (varname, expr'))
-
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
   match expr with
   | Null _ | Bool _ | String _ | Number _ -> ok (env, expr)
-  | Object (pos, entries) -> interpret_object env (pos, entries) interpret
+  | Object (pos, entries) -> interpret_object env (pos, entries)
   | Array (pos, exprs) -> interpret_array env (pos, exprs)
   | Ident (pos, varname) ->
     Env.find_var varname env
@@ -117,6 +99,24 @@ and interpret_array env (pos, exprs) =
     (ok (env, []))
     exprs
   in ok (env', Array (pos, evaluated_exprs))
+
+and interpret_object env (pos, entries) =
+  let* (result_env, evaluated_entries) = List.fold_left
+    (fun result entry ->
+      let* (env', entries') = result in
+      let* (env'', evaluated_entry) = interpret_obj_entry env' entry in
+      ok (env'', entries' @ [evaluated_entry])
+    )
+    (ok (env, []))
+    entries
+  in
+  ok (result_env, Object (pos, evaluated_entries))
+and interpret_obj_entry env expr =
+  match expr with
+  | ObjectExpr expr ->
+    interpret env expr >>= fun (env', expr') -> ok (env', ObjectExpr expr')
+  | ObjectField (varname, expr) ->
+    interpret env expr >>= fun (env', expr') -> ok (env', ObjectField (varname, expr'))
 
 let eval expr =
   let* (_env, evaluated_expr) = interpret Env.empty expr
