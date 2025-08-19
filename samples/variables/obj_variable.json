@@ -1,0 +1,19 @@
+{
+   "Daiquiri": {
+      "ingredients": [
+         {
+            "kind": "Banks Rum",
+            "qty": 1.5
+         },
+         {
+            "kind": "Lime",
+            "qty": 1
+         },
+         {
+            "kind": "Simple Syrup",
+            "qty": 0.5
+         }
+      ],
+      "served": "Straight Up"
+   }
+}

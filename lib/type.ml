@@ -107,26 +107,11 @@ let rec translate expr venv =
           rest
       in ok (venv, Tarray ty)
     )
-  | Object (_pos, elems) ->
-    let* (fields, _) =
-      List.fold_left
-        (fun acc entry ->
-          let* (fields, venv) = acc in
-          match entry with
-          | ObjectField (attr, expr) ->
-              let* (venv', ty) = translate expr venv in
-              ok ((TobjectField (attr, ty)) :: fields, venv')
-          | ObjectExpr expr ->
-              let* (venv', _ty) = translate expr venv in
-              ok (fields, venv')
-        )
-        (ok ([], venv))
-        elems
-    in ok (venv, Tobject fields)
+  | Object (pos, entries) -> translate_object venv pos entries
   | Local (pos, vars) ->
     let venv' = List.fold_left
       (* Adds an expr to the env to be evaluated at a later point in time (when required) *)
-      (fun venv (varname, var_expr) -> Env.Map.add varname (Lazy var_expr) venv)
+      (fun venv (varname, var_expr) -> Env.add_local varname (Lazy var_expr) venv)
       venv
       vars
     in
@@ -170,6 +155,42 @@ let rec translate expr venv =
         ~err:(Error.error_at pos)
     | ty -> Error.trace ("Expected Integer index, got " ^ to_string ty) pos >>= error
     )
+and translate_object venv pos entries =
+  let* obj_id = Env.Id.generate () in
+  (* Translate locals *)
+  let* venv' = List.fold_left
+    (fun result entry ->
+      let* venv = result in
+      match entry with
+      | ObjectExpr expr ->
+        let* (venv', _) = translate expr venv in (ok venv')
+      | ObjectField (attr, expr) ->
+        ok (Env.add_obj_field attr (Lazy expr) obj_id venv)
+    )
+    (ok venv)
+    entries
+  in
+  (* Then translate object fields *)
+  let* entry_types = List.fold_left
+    (fun result entry ->
+      let* entries' = result in
+      match entry with
+      | ObjectField (attr, _) ->
+        let* (_, entry_ty) = Env.get_obj_field attr obj_id venv'
+          ~succ:(fun venv'' texpr ->
+            match texpr with
+            | Lazy expr -> translate expr venv''
+            | ty -> Error.error_at pos ("Invalid type " ^ to_string ty)
+          )
+          ~err:(Error.error_at pos)
+        in ok (entries' @ [TobjectField (attr, entry_ty)])
+      | _ ->
+        result
+    )
+    (ok [])
+    entries
+  in
+  ok (venv, Tobject entry_types)
 
 let check expr =
-  translate expr Env.empty >>= fun _ -> ok expr
+  translate expr Env.empty >>= fun _ -> Env.Id.reset (); ok expr

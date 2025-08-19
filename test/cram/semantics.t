@@ -29,6 +29,13 @@
      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   [1]
 
+  $ tsonnet ../../samples/semantics/invalid_binding_cycle_object_locals.jsonnet
+  ../../samples/semantics/invalid_binding_cycle_object_locals.jsonnet:3:14 Cyclic reference found for c
+  
+  3:     local b = c,
+     ^^^^^^^^^^^^^^^^
+  [1]
+
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_binop.jsonnet
   ../../samples/semantics/invalid_binding_cycle_binop.jsonnet:1:10 Cyclic reference found for b
   

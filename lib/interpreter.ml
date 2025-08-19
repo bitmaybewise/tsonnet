@@ -69,7 +69,7 @@ let rec interpret env expr =
       ~ok:(fun expr' -> ok (env', expr'))
       ~error:(Error.error_at pos)
   | Local (_, vars) ->
-    let acc_fun env (varname, expr) = Env.Map.add varname expr env in
+    let acc_fun env (varname, expr) = Env.add_local varname expr env in
     let env' = List.fold_left acc_fun env vars
     in ok (env', Unit)
   | Unit -> ok (env, Unit)
@@ -101,22 +101,41 @@ and interpret_array env (pos, exprs) =
   in ok (env', Array (pos, evaluated_exprs))
 
 and interpret_object env (pos, entries) =
-  let* (result_env, evaluated_entries) = List.fold_left
+  let* obj_id = Env.Id.generate () in
+  (* First add locals and object fields to env *)
+  let* env' = List.fold_left
     (fun result entry ->
-      let* (env', entries') = result in
-      let* (env'', evaluated_entry) = interpret_obj_entry env' entry in
-      ok (env'', entries' @ [evaluated_entry])
+      let* env' = result in
+      match entry with
+      | ObjectExpr expr ->
+        (* ObjectExpr holds a single local. Interpreting
+          it will add the expr to the environment *)
+        let* (env'', _) = interpret env' expr in (ok env'')
+      | ObjectField (attr, expr) ->
+        ok (Env.add_obj_field attr expr obj_id env')
     )
-    (ok (env, []))
+    (ok env)
     entries
   in
-  ok (result_env, Object (pos, evaluated_entries))
-and interpret_obj_entry env expr =
-  match expr with
-  | ObjectExpr expr ->
-    interpret env expr >>= fun (env', expr') -> ok (env', ObjectExpr expr')
-  | ObjectField (varname, expr) ->
-    interpret env expr >>= fun (env', expr') -> ok (env', ObjectField (varname, expr'))
+  (* Then interpret after env is populated. This allows locals
+    and object fields to be accessed in a lazy evaluated manner. *)
+  let* evaluated_entries = List.fold_left
+    (fun result entry ->
+      let* entries' = result in
+      match entry with
+      | ObjectField (attr, _) ->
+        let* (_, entry) = Env.get_obj_field attr obj_id env'
+          ~succ:(fun env'' expr -> interpret env'' expr)
+          ~err:(Error.error_at pos)
+        in ok (entries' @ [ObjectField (attr, entry)])
+      | _ ->
+        (* Ignore previously evaluated expressions *)
+        result
+    )
+    (ok [])
+    entries
+  in
+  ok (env, Object (pos, evaluated_entries))
 
 let eval expr =
   let* (_env, evaluated_expr) = interpret Env.empty expr
