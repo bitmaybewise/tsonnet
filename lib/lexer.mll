@@ -21,7 +21,9 @@ let digit = ['0'-'9']
 let int = digit+
 let frac = '.' digit*
 let exp = ['e' 'E']['-' '+']? digit+
-let float = digit* frac? exp?
+let float = digit+ '.' digit* exp? (* 123.456, 123.456e10 *)
+          | digit* '.' digit+ exp? (* .456, .456e10 *)
+          | digit+ exp             (* 123e10 *)
 let null = "null"
 let bool = "true" | "false"
 let letter = ['a'-'z' 'A'-'Z']
