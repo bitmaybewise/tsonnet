@@ -38,6 +38,8 @@ type expr =
   | Ident of position * string
   | Array of position * expr list
   | Object of position * object_entry list
+  | ObjectSelf of Env.env_id
+  | ObjectFieldAccess of position * string
   | BinOp of position * bin_op * expr * expr
   | UnaryOp of position * unary_op * expr
   | Local of position * (string * expr) list
@@ -85,6 +87,8 @@ let string_of_type = function
   | Unit -> "()"
   | Seq _ -> "Sequence"
   | IndexedExpr _ -> "Indexed Expression"
+  | ObjectSelf _ -> "self"
+  | _ -> "NOT IMPLEMENTED YET"
 
 module Indexable = struct
   let length (e : expr) =

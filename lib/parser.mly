@@ -18,6 +18,8 @@
 %token COMMA
 %token LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
 %token COLON
+%token DOT
+%token SELF
 %token PLUS MINUS MULTIPLY DIVIDE
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
@@ -52,6 +54,7 @@ assignable_expr:
   | e1 = assignable_expr; op = bin_op; e2 = assignable_expr { BinOp (with_pos $startpos $endpos, op, e1, e2) }
   | op = unary_op; e = assignable_expr { UnaryOp (with_pos $startpos $endpos, op, e) }
   | varname = ID; LEFT_SQR_BRACKET; e = assignable_expr; RIGHT_SQR_BRACKET { IndexedExpr (with_pos $startpos $endpos, varname, e) }
+  | SELF; DOT; field = ID { ObjectFieldAccess (with_pos $startpos $endpos, field) }
   ;
 
 scoped_expr:

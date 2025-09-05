@@ -11,6 +11,7 @@ type tsonnet_type =
   | Tany
   | Tarray of tsonnet_type
   | Tobject of t_object_entry list
+  | TobjectSelf of Env.env_id
   | Lazy of expr
 and t_object_entry =
   | TobjectField of string * tsonnet_type
@@ -32,6 +33,7 @@ let rec to_string = function
     "{" ^ (
       String.concat ", " (List.map field_to_string fields)
     ) ^ "}"
+  | TobjectSelf (Env.EnvId id) -> Printf.sprintf "self (%d)" id
   | Lazy ty -> string_of_type ty
 
 let rec check_cyclic_refs venv varname seen pos =
@@ -108,6 +110,7 @@ let rec translate expr venv =
       in ok (venv, Tarray ty)
     )
   | Object (pos, entries) -> translate_object venv pos entries
+  | ObjectFieldAccess (pos, field) -> translate_object_field_access venv pos field
   | Local (pos, vars) ->
     let venv' = List.fold_left
       (* Adds an expr to the env to be evaluated at a later point in time (when required) *)
@@ -155,10 +158,13 @@ let rec translate expr venv =
         ~err:(Error.error_at pos)
     | ty -> Error.trace ("Expected Integer index, got " ^ to_string ty) pos >>= error
     )
+  | expr -> error ("Type " ^ string_of_type expr ^ " cannot be type checked.")
+
 and translate_object venv pos entries =
   let* obj_id = Env.Id.generate () in
+  let venv' = Env.add_local "self" (TobjectSelf obj_id) venv in
   (* Translate locals *)
-  let* venv' = List.fold_left
+  let* venv'' = List.fold_left
     (fun result entry ->
       let* venv = result in
       match entry with
@@ -167,7 +173,7 @@ and translate_object venv pos entries =
       | ObjectField (attr, expr) ->
         ok (Env.add_obj_field attr (Lazy expr) obj_id venv)
     )
-    (ok venv)
+    (ok venv')
     entries
   in
   (* Then translate object fields *)
@@ -176,10 +182,10 @@ and translate_object venv pos entries =
       let* entries' = result in
       match entry with
       | ObjectField (attr, _) ->
-        let* (_, entry_ty) = Env.get_obj_field attr obj_id venv'
-          ~succ:(fun venv'' texpr ->
+        let* (_, entry_ty) = Env.get_obj_field attr obj_id venv''
+          ~succ:(fun venv''' texpr ->
             match texpr with
-            | Lazy expr -> translate expr venv''
+            | Lazy expr -> translate expr venv'''
             | ty -> Error.error_at pos ("Invalid type " ^ to_string ty)
           )
           ~err:(Error.error_at pos)
@@ -191,6 +197,23 @@ and translate_object venv pos entries =
     entries
   in
   ok (venv, Tobject entry_types)
+
+and translate_object_field_access venv pos field =
+  Env.find_var "self" venv
+    ~err:(Error.error_at pos)
+    ~succ:(fun venv' type' ->
+      match type' with
+      | TobjectSelf obj_id ->
+        Env.get_obj_field field obj_id venv'
+          ~err:(Error.error_at pos)
+          ~succ:(fun venv'' lazy_expr ->
+            match lazy_expr with
+            | Lazy expr -> translate expr venv''
+            | ty -> Error.error_at pos ("Invalid type " ^ to_string ty)
+          )
+      | _ ->
+        error "Can't use self outside of an object"
+    )
 
 let check expr =
   translate expr Env.empty >>= fun _ -> Env.Id.reset (); ok expr

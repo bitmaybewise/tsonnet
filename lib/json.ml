@@ -16,11 +16,11 @@ let rec value_to_yojson : Ast.expr -> (Yojson.t, string) result = function
   | Object (_, entries) ->
     let eval' = fun entry ->
       match entry with
-      | ObjectExpr _ ->
-        error "Object expression(s) not representable as JSON"
       | ObjectField (k, v) ->
         let result = value_to_yojson v
         in Result.map (fun val' -> (k, val')) result
+      | _ ->
+        error "Object expression(s) not representable as JSON"
     in
     let results = entries |> List.map eval' |> List.map to_list |> List.concat
     in ok (`Assoc results)

@@ -24,6 +24,8 @@ let empty = Map.empty
 
 let keys env = Map.fold (fun k _ acc -> k :: acc) env []
 
+let find_opt = Map.find_opt
+
 let find_var varname env ~succ ~err =
   match Map.find_opt varname env with
   | Some expr ->

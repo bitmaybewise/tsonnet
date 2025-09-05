@@ -61,7 +61,9 @@ rule read =
   | '~' { BITWISE_NOT }
   | '=' { ASSIGN }
   | ';' { SEMICOLON }
+  | '.' { DOT }
   | "local" { LOCAL }
+  | "self" { SELF }
   | id { ID (Lexing.lexeme lexbuf) }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }

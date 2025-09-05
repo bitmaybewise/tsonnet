@@ -45,8 +45,9 @@ let interpret_unary_op (op: unary_op) (evaluated_expr: expr) =
 let rec interpret env expr =
   match expr with
   | Null _ | Bool _ | String _ | Number _ -> ok (env, expr)
-  | Object (pos, entries) -> interpret_object env (pos, entries)
   | Array (pos, exprs) -> interpret_array env (pos, exprs)
+  | Object (pos, entries) -> interpret_object env (pos, entries)
+  | ObjectFieldAccess (pos, field) -> interpret_object_field_access env (pos, field)
   | Ident (pos, varname) ->
     Env.find_var varname env
       ~succ:(fun env' expr -> interpret env' expr)
@@ -88,6 +89,7 @@ let rec interpret env expr =
           ~error:(Error.error_at pos)
       )
       ~err:(Error.error_at pos)
+    | expr -> error (Printf.sprintf "Expression %s cannot be interpreted" (string_of_type expr))
 
 and interpret_array env (pos, exprs) =
   let* (env', evaluated_exprs) = List.fold_left
@@ -102,8 +104,9 @@ and interpret_array env (pos, exprs) =
 
 and interpret_object env (pos, entries) =
   let* obj_id = Env.Id.generate () in
+  let env' = Env.add_local "self" (ObjectSelf obj_id) env in
   (* First add locals and object fields to env *)
-  let* env' = List.fold_left
+  let* env'' = List.fold_left
     (fun result entry ->
       let* env' = result in
       match entry with
@@ -114,7 +117,7 @@ and interpret_object env (pos, entries) =
       | ObjectField (attr, expr) ->
         ok (Env.add_obj_field attr expr obj_id env')
     )
-    (ok env)
+    (ok env')
     entries
   in
   (* Then interpret after env is populated. This allows locals
@@ -124,8 +127,8 @@ and interpret_object env (pos, entries) =
       let* entries' = result in
       match entry with
       | ObjectField (attr, _) ->
-        let* (_, entry) = Env.get_obj_field attr obj_id env'
-          ~succ:(fun env'' expr -> interpret env'' expr)
+        let* (_, entry) = Env.get_obj_field attr obj_id env''
+          ~succ:(fun env''' expr -> interpret env''' expr)
           ~err:(Error.error_at pos)
         in ok (entries' @ [ObjectField (attr, entry)])
       | _ ->
@@ -136,6 +139,20 @@ and interpret_object env (pos, entries) =
     entries
   in
   ok (env, Object (pos, evaluated_entries))
+
+and interpret_object_field_access env (pos, field) =
+  let* (_, evaluated_expr) = Env.find_var "self" env
+    ~succ:(fun env' expr ->
+      match expr with
+      | ObjectSelf obj_id ->
+        Env.get_obj_field field obj_id env'
+          ~succ:interpret
+          ~err:(Error.error_at pos)
+      | _ ->
+        Error.error_at pos "Can't use self outside of an object"
+    )
+    ~err:(Error.error_at pos)
+  in ok (env, evaluated_expr)
 
 let eval expr =
   let* (_env, evaluated_expr) = interpret Env.empty expr
