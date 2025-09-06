@@ -216,4 +216,8 @@ and translate_object_field_access venv pos field =
     )
 
 let check expr =
-  translate expr Env.empty >>= fun _ -> Env.Id.reset (); ok expr
+  Scope.validate expr
+  >>= fun _ -> translate expr Env.empty
+  >>= fun _ ->
+    Env.Id.reset ();
+    ok expr

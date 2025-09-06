@@ -85,3 +85,10 @@
   2: name[1234]
      ^^^^^^^^^^
   [1]
+
+  $ tsonnet ../../samples/errors/object_self_out_of_scope.jsonnet
+  ../../samples/errors/object_self_out_of_scope.jsonnet:2:13 Can't use self outside of an object
+  
+  2: local _two = self.one + 1;
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
