@@ -56,3 +56,17 @@
   1: local a = b;
      ^^^^^^^^^^^^
   [1]
+
+  $ tsonnet ../../samples/semantics/invalid_binding_cycle_object_fields.jsonnet
+  ../../samples/semantics/invalid_binding_cycle_object_fields.jsonnet:3:7 Cyclic reference found for 1->a
+  
+  3:     b: self.a,
+     ^^^^^^^^^^^^^^
+  [1]
+
+  $ tsonnet ../../samples/semantics/invalid_binding_cycle_object_field_and_local.jsonnet
+  ../../samples/semantics/invalid_binding_cycle_object_field_and_local.jsonnet:2:14 Cyclic reference found for 1->b
+  
+  2:     local a = self.b,
+     ^^^^^^^^^^^^^^^^^^^^^
+  [1]

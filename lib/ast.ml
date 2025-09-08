@@ -88,7 +88,7 @@ let string_of_type = function
   | Seq _ -> "Sequence"
   | IndexedExpr _ -> "Indexed Expression"
   | ObjectSelf _ -> "self"
-  | _ -> "NOT IMPLEMENTED YET"
+  | ObjectFieldAccess (_, field) -> Printf.sprintf "Object field=%s" field
 
 module Indexable = struct
   let length (e : expr) =

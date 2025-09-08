@@ -41,22 +41,15 @@ let rec check_cyclic_refs venv varname seen pos =
   then
     Error.trace ("Cyclic reference found for " ^ varname) pos >>= error
   else
-    match Env.Map.find_opt varname venv with
+    match Env.find_opt varname venv with
     | Some (Lazy expr) -> check_expr_for_cycles venv expr (varname :: seen)
     | _ -> ok ()
 and check_expr_for_cycles venv expr seen =
   match expr with
   | Unit | Null _ | Number _ | String _ | Bool _ -> ok ()
   | Array (_, exprs) -> iter_for_cycles venv seen exprs
-  | Object (_, entries) ->
-    List.fold_left
-      (fun ok entry -> ok >>= fun _ ->
-        match entry with
-        | ObjectField (_, expr) -> check_expr_for_cycles venv expr seen
-        | ObjectExpr expr -> check_expr_for_cycles venv expr seen
-      )
-      (ok ())
-      entries
+  | Object (_, entries) -> check_object_for_cycles venv entries seen
+  | ObjectFieldAccess (pos, field) -> check_object_field_for_cycles venv field pos seen
   | Ident (pos, varname) -> check_cyclic_refs venv varname seen pos
   | BinOp (_, _, e1, e2) -> iter_for_cycles venv seen [e1; e2]
   | UnaryOp (_, _, e) -> check_expr_for_cycles venv e seen
@@ -67,6 +60,22 @@ and iter_for_cycles venv seen exprs =
     (fun ok' expr -> ok' >>= fun _ -> (check_expr_for_cycles venv expr seen))
     (ok ())
     exprs
+and check_object_for_cycles venv entries seen =
+  List.fold_left
+    (fun ok entry -> ok >>= fun _ ->
+      match entry with
+      | ObjectField (field, expr) -> check_expr_for_cycles venv expr (field :: seen)
+      | ObjectExpr expr -> check_expr_for_cycles venv expr seen
+    )
+    (ok ())
+    entries
+and check_object_field_for_cycles venv field pos seen =
+  (match Env.find_opt "self" venv with
+  | Some (TobjectSelf obj_id) ->
+    let obj_field = Env.uniq_field_ident obj_id field in
+    check_cyclic_refs venv obj_field seen pos
+  | _ -> ok ()
+  )
 
 let rec translate expr venv =
   match expr with
@@ -158,7 +167,11 @@ let rec translate expr venv =
         ~err:(Error.error_at pos)
     | ty -> Error.trace ("Expected Integer index, got " ^ to_string ty) pos >>= error
     )
-  | expr -> error ("Type " ^ string_of_type expr ^ " cannot be type checked.")
+  | expr' -> error ("Invalid type " ^ string_of_type expr')
+
+and translate_lazy venv = function
+  | Lazy expr -> translate expr venv
+  | ty -> error ("Invalid type " ^ to_string ty)
 
 and translate_object venv pos entries =
   let* obj_id = Env.Id.generate () in
@@ -176,6 +189,17 @@ and translate_object venv pos entries =
     (ok venv')
     entries
   in
+  (* Check for cyclical references among object fields *)
+  let* () = List.fold_left
+      (fun ok' entry -> ok' >>= fun _ ->
+        match entry with
+        | ObjectField (attr, _) ->
+          check_cyclic_refs venv'' (Env.uniq_field_ident obj_id attr) [] pos
+        | _ -> ok'
+      )
+      (ok ())
+      entries
+  in
   (* Then translate object fields *)
   let* entry_types = List.fold_left
     (fun result entry ->
@@ -183,11 +207,7 @@ and translate_object venv pos entries =
       match entry with
       | ObjectField (attr, _) ->
         let* (_, entry_ty) = Env.get_obj_field attr obj_id venv''
-          ~succ:(fun venv''' texpr ->
-            match texpr with
-            | Lazy expr -> translate expr venv'''
-            | ty -> Error.error_at pos ("Invalid type " ^ to_string ty)
-          )
+          ~succ:translate_lazy
           ~err:(Error.error_at pos)
         in ok (entries' @ [TobjectField (attr, entry_ty)])
       | _ ->
@@ -199,21 +219,13 @@ and translate_object venv pos entries =
   ok (venv, Tobject entry_types)
 
 and translate_object_field_access venv pos field =
-  Env.find_var "self" venv
-    ~err:(Error.error_at pos)
-    ~succ:(fun venv' type' ->
-      match type' with
-      | TobjectSelf obj_id ->
-        Env.get_obj_field field obj_id venv'
-          ~err:(Error.error_at pos)
-          ~succ:(fun venv'' lazy_expr ->
-            match lazy_expr with
-            | Lazy expr -> translate expr venv''
-            | ty -> Error.error_at pos ("Invalid type " ^ to_string ty)
-          )
-      | _ ->
-        error "Can't use self outside of an object"
-    )
+  match Env.find_opt "self" venv with
+  | Some (TobjectSelf obj_id) ->
+    Env.get_obj_field field obj_id venv
+      ~succ:translate_lazy
+      ~err:(Error.error_at pos)
+  | _ ->
+    Error.error_at pos "Can't use self outside of an object"
 
 let check expr =
   Scope.validate expr
