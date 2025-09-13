@@ -19,7 +19,7 @@
 %token LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
 %token COLON
 %token DOT
-%token SELF
+%token SELF TOP_LEVEL_OBJ
 %token PLUS MINUS MULTIPLY DIVIDE
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
@@ -54,7 +54,7 @@ assignable_expr:
   | e1 = assignable_expr; op = bin_op; e2 = assignable_expr { BinOp (with_pos $startpos $endpos, op, e1, e2) }
   | op = unary_op; e = assignable_expr { UnaryOp (with_pos $startpos $endpos, op, e) }
   | varname = ID; LEFT_SQR_BRACKET; e = assignable_expr; RIGHT_SQR_BRACKET { IndexedExpr (with_pos $startpos $endpos, varname, e) }
-  | SELF; DOT; field = ID { ObjectFieldAccess (with_pos $startpos $endpos, field) }
+  | e = obj_field_access { e }
   ;
 
 scoped_expr:
@@ -92,6 +92,13 @@ obj_field_list:
   | { [] }
   | obj_field { [$1] }
   | f = obj_field; COMMA; fields = obj_field_list { f :: fields }
+  ;
+
+obj_field_access:
+  | SELF; LEFT_SQR_BRACKET; field = STRING; RIGHT_SQR_BRACKET { ObjectFieldAccess (with_pos $startpos $endpos, Self, field) }
+  | SELF; DOT; field = ID { ObjectFieldAccess (with_pos $startpos $endpos, Self, field) }
+  | TOP_LEVEL_OBJ; LEFT_SQR_BRACKET; field = STRING; RIGHT_SQR_BRACKET { ObjectFieldAccess (with_pos $startpos $endpos, TopLevel, field) }
+  | TOP_LEVEL_OBJ; DOT; field = ID { ObjectFieldAccess (with_pos $startpos $endpos, TopLevel, field) }
   ;
 
 %inline number:

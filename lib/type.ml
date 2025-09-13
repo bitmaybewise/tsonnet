@@ -49,7 +49,7 @@ and check_expr_for_cycles venv expr seen =
   | Unit | Null _ | Number _ | String _ | Bool _ -> ok ()
   | Array (_, exprs) -> iter_for_cycles venv seen exprs
   | Object (_, entries) -> check_object_for_cycles venv entries seen
-  | ObjectFieldAccess (pos, field) -> check_object_field_for_cycles venv field pos seen
+  | ObjectFieldAccess (pos, scope, field) -> check_object_field_for_cycles venv (pos, scope, field) seen
   | Ident (pos, varname) -> check_cyclic_refs venv varname seen pos
   | BinOp (_, _, e1, e2) -> iter_for_cycles venv seen [e1; e2]
   | UnaryOp (_, _, e) -> check_expr_for_cycles venv e seen
@@ -69,8 +69,8 @@ and check_object_for_cycles venv entries seen =
     )
     (ok ())
     entries
-and check_object_field_for_cycles venv field pos seen =
-  (match Env.find_opt "self" venv with
+and check_object_field_for_cycles venv (pos, scope, field) seen =
+  (match Env.find_opt (string_of_object_scope scope) venv with
   | Some (TobjectSelf obj_id) ->
     let obj_field = Env.uniq_field_ident obj_id field in
     check_cyclic_refs venv obj_field seen pos
@@ -119,7 +119,7 @@ let rec translate expr venv =
       in ok (venv, Tarray ty)
     )
   | Object (pos, entries) -> translate_object venv pos entries
-  | ObjectFieldAccess (pos, field) -> translate_object_field_access venv pos field
+  | ObjectFieldAccess (pos, scope, field) -> translate_object_field_access venv pos scope field
   | Local (pos, vars) ->
     let venv' = List.fold_left
       (* Adds an expr to the env to be evaluated at a later point in time (when required) *)
@@ -175,7 +175,9 @@ and translate_lazy venv = function
 
 and translate_object venv pos entries =
   let* obj_id = Env.Id.generate () in
-  let venv' = Env.add_local "self" (TobjectSelf obj_id) venv in
+  let obj = TobjectSelf obj_id in
+  let venv' = Env.add_local "self" obj venv in
+  let venv' = Env.add_local_when_not_present "$" obj venv' in
   (* Translate locals *)
   let* venv'' = List.fold_left
     (fun result entry ->
@@ -218,14 +220,17 @@ and translate_object venv pos entries =
   in
   ok (venv, Tobject entry_types)
 
-and translate_object_field_access venv pos field =
-  match Env.find_opt "self" venv with
+and translate_object_field_access venv pos scope field =
+  match Env.find_opt (string_of_object_scope scope) venv with
   | Some (TobjectSelf obj_id) ->
     Env.get_obj_field field obj_id venv
       ~succ:translate_lazy
       ~err:(Error.error_at pos)
   | _ ->
-    Error.error_at pos "Can't use self outside of an object"
+    Error.error_at pos
+      (if scope = Self
+      then Scope.self_out_of_scope
+      else Scope.no_toplevel_object)
 
 let check expr =
   Scope.validate expr

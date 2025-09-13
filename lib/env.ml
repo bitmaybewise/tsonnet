@@ -39,6 +39,11 @@ let find_var varname env ~succ ~err =
 
 let add_local = Map.add
 
+let add_local_when_not_present name value env =
+  match find_opt name env with
+  | Some _ -> env
+  | None -> add_local name value env
+
 let uniq_field_ident (EnvId id) name =
   Printf.sprintf "%d->%s" id name
 

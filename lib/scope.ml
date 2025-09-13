@@ -12,6 +12,9 @@ type context = {
   current_locals: string list;
 }
 
+let self_out_of_scope = "Can't use self outside of an object"
+let no_toplevel_object = "No top-level object found"
+
 let empty_context = {
   in_object = false;
   object_depth = 0;
@@ -40,8 +43,8 @@ let rec _validate expr context =
   | Object (_, entries) ->
     (* Object validation - this is where scope context changes *)
     validate_object entries context
-  | ObjectFieldAccess (pos, _) ->
-    validate_object_field_access pos context
+  | ObjectFieldAccess (pos, scope, _) ->
+    validate_object_field_access pos scope context
   | Local (_, vars) ->
     validate_locals vars context
   | Seq exprs ->
@@ -57,9 +60,10 @@ let rec _validate expr context =
     ok ()
 
 and validate_ident pos varname context =
-  if varname = "self" && not context.in_object
-  then Error.trace ("Can't use self outside of an object") pos >>= error
-  else ok ()
+  match (varname, context.in_object) with
+  | ("self", false) -> Error.trace self_out_of_scope pos >>= error
+  | ("$", false) -> Error.trace no_toplevel_object pos >>= error
+  | _ -> ok ()
 
 and validate_expression_list exprs context =
   List.fold_left
@@ -97,10 +101,18 @@ and collect_local_variables entries =
     []
     entries
 
-and validate_object_field_access pos context =
-  (* This catches cases like: local x = self.field; outside of objects *)
+and validate_object_field_access pos scope context =
+  (* This catches cases like:
+    local x = self.field;
+    local x = $.field;
+    outside of objects *)
   if not context.in_object
-  then Error.trace ("Can't use self outside of an object") pos >>= error
+  then
+    let with_error_msg = match scope with
+                        | Self -> self_out_of_scope
+                        | TopLevel -> no_toplevel_object
+    in
+    Error.trace with_error_msg pos >>= error
   else ok ()
 
 and validate_locals vars context =

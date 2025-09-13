@@ -92,3 +92,10 @@
   2: local _two = self.one + 1;
      ^^^^^^^^^^^^^^^^^^^^^^^^^^
   [1]
+
+  $ tsonnet ../../samples/errors/object_outer_most_ref_out_of_scope.jsonnet
+  ../../samples/errors/object_outer_most_ref_out_of_scope.jsonnet:2:13 No top-level object found
+  
+  2: local _two = $.one + 1;
+     ^^^^^^^^^^^^^^^^^^^^^^^
+  [1]

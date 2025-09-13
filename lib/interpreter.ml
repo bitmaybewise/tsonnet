@@ -47,7 +47,7 @@ let rec interpret env expr =
   | Null _ | Bool _ | String _ | Number _ -> ok (env, expr)
   | Array (pos, exprs) -> interpret_array env (pos, exprs)
   | Object (pos, entries) -> interpret_object env (pos, entries)
-  | ObjectFieldAccess (pos, field) -> interpret_object_field_access env (pos, field)
+  | ObjectFieldAccess (pos, scope, field) -> interpret_object_field_access env (pos, scope, field)
   | Ident (pos, varname) ->
     Env.find_var varname env
       ~succ:(fun env' expr -> interpret env' expr)
@@ -104,7 +104,9 @@ and interpret_array env (pos, exprs) =
 
 and interpret_object env (pos, entries) =
   let* obj_id = Env.Id.generate () in
-  let env' = Env.add_local "self" (ObjectSelf obj_id) env in
+  let obj = ObjectSelf obj_id in
+  let env' = Env.add_local "self" obj env in
+  let env' = Env.add_local_when_not_present "$" obj env' in
   (* First add locals and object fields to env *)
   let* env'' = List.fold_left
     (fun result entry ->
@@ -140,8 +142,8 @@ and interpret_object env (pos, entries) =
   in
   ok (env, Object (pos, evaluated_entries))
 
-and interpret_object_field_access env (pos, field) =
-  let* (_, evaluated_expr) = Env.find_var "self" env
+and interpret_object_field_access env (pos, scope, field) =
+  let* (_, evaluated_expr) = Env.find_var (string_of_object_scope scope) env
     ~succ:(fun env' expr ->
       match expr with
       | ObjectSelf obj_id ->
@@ -149,7 +151,10 @@ and interpret_object_field_access env (pos, field) =
           ~succ:interpret
           ~err:(Error.error_at pos)
       | _ ->
-        Error.error_at pos "Can't use self outside of an object"
+        Error.error_at pos
+          (match scope with
+          | Self -> Scope.self_out_of_scope
+          | TopLevel -> Scope.no_toplevel_object)
     )
     ~err:(Error.error_at pos)
   in ok (env, evaluated_expr)

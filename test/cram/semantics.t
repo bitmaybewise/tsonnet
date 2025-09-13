@@ -64,6 +64,13 @@
      ^^^^^^^^^^^^^^
   [1]
 
+  $ tsonnet ../../samples/semantics/invalid_binding_cycle_outer_object_fields.jsonnet
+  ../../samples/semantics/invalid_binding_cycle_outer_object_fields.jsonnet:3:7 Cyclic reference found for 1->a
+  
+  3:     b: $.a,
+     ^^^^^^^^^^^
+  [1]
+
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_object_field_and_local.jsonnet
   ../../samples/semantics/invalid_binding_cycle_object_field_and_local.jsonnet:2:14 Cyclic reference found for 1->b
   

@@ -39,7 +39,7 @@ type expr =
   | Array of position * expr list
   | Object of position * object_entry list
   | ObjectSelf of Env.env_id
-  | ObjectFieldAccess of position * string
+  | ObjectFieldAccess of position * object_scope * string
   | BinOp of position * bin_op * expr * expr
   | UnaryOp of position * unary_op * expr
   | Local of position * (string * expr) list
@@ -48,6 +48,9 @@ type expr =
 and object_entry =
   | ObjectField of string * expr
   | ObjectExpr of expr
+and object_scope =
+  | Self
+  | TopLevel
 
 let dummy_expr = Unit
 
@@ -55,6 +58,10 @@ let pos_from_lexbuf (lexbuf : Lexing.lexbuf) : position =
   { startpos = lexbuf.lex_curr_p;
     endpos = lexbuf.lex_curr_p;
   }
+
+let string_of_object_scope = function
+  | Self -> "self"
+  | TopLevel -> "$"
 
 let string_of_type = function
   | Null _ -> "Null"
@@ -88,7 +95,7 @@ let string_of_type = function
   | Seq _ -> "Sequence"
   | IndexedExpr _ -> "Indexed Expression"
   | ObjectSelf _ -> "self"
-  | ObjectFieldAccess (_, field) -> Printf.sprintf "Object field=%s" field
+  | ObjectFieldAccess (_, scope, field) -> Printf.sprintf "Object %s.%s" (string_of_object_scope scope) field
 
 module Indexable = struct
   let length (e : expr) =
