@@ -53,8 +53,12 @@ assignable_expr:
   | e = literal { e }
   | e1 = assignable_expr; op = bin_op; e2 = assignable_expr { BinOp (with_pos $startpos $endpos, op, e1, e2) }
   | op = unary_op; e = assignable_expr { UnaryOp (with_pos $startpos $endpos, op, e) }
-  | varname = ID; LEFT_SQR_BRACKET; e = assignable_expr; RIGHT_SQR_BRACKET { IndexedExpr (with_pos $startpos $endpos, varname, e) }
+  | e = indexed_expr { e }
   | e = obj_field_access { e }
+  ;
+
+indexed_expr:
+  | varname = ID; LEFT_SQR_BRACKET; e = assignable_expr; RIGHT_SQR_BRACKET { IndexedExpr (with_pos $startpos $endpos, varname, e) }
   ;
 
 scoped_expr:
@@ -62,14 +66,18 @@ scoped_expr:
   | LEFT_PAREN; e = expr_seq; RIGHT_PAREN { e }
   ;
 
+identifier:
+  | id = ID { Ident (with_pos $startpos $endpos, id) }
+  ;
+
 literal:
   | n = number { Number (with_pos $startpos $endpos, n) }
   | NULL { Null (with_pos $startpos $endpos) }
   | b = BOOL { Bool (with_pos $startpos $endpos, b) }
   | s = STRING { String (with_pos $startpos $endpos, s) }
-  | id = ID { Ident (with_pos $startpos $endpos, id) }
+  | id = identifier { id }
   | LEFT_SQR_BRACKET; values = array_field_list; RIGHT_SQR_BRACKET { Array (with_pos $startpos $endpos, values) }
-  | LEFT_CURLY_BRACKET; attrs = obj_field_list; RIGHT_CURLY_BRACKET { Object (with_pos $startpos $endpos, attrs) }
+  | LEFT_CURLY_BRACKET; attrs = obj_field_list; RIGHT_CURLY_BRACKET { ParsedObject (with_pos $startpos $endpos, attrs) }
   ;
 
 array_field_list:
@@ -94,11 +102,39 @@ obj_field_list:
   | f = obj_field; COMMA; fields = obj_field_list { f :: fields }
   ;
 
+obj_field_expr:
+  | DOT; e = indexed_expr { e }
+  | DOT; id = identifier { id }
+  ;
+
+obj_field_chain:
+  | { [] }
+  | id = obj_field_expr; ids = obj_field_chain { id :: ids }
+  ;
+
+obj_scope:
+  | SELF { Self }
+  | TOP_LEVEL_OBJ { TopLevel }
+  ;
+
 obj_field_access:
-  | SELF; LEFT_SQR_BRACKET; field = STRING; RIGHT_SQR_BRACKET { ObjectFieldAccess (with_pos $startpos $endpos, Self, field) }
-  | SELF; DOT; field = ID { ObjectFieldAccess (with_pos $startpos $endpos, Self, field) }
-  | TOP_LEVEL_OBJ; LEFT_SQR_BRACKET; field = STRING; RIGHT_SQR_BRACKET { ObjectFieldAccess (with_pos $startpos $endpos, TopLevel, field) }
-  | TOP_LEVEL_OBJ; DOT; field = ID { ObjectFieldAccess (with_pos $startpos $endpos, TopLevel, field) }
+  | scope = obj_scope; chain = obj_field_chain { ObjectFieldAccess (with_pos $startpos $endpos, scope, chain) }
+  (* The first bracketed expr when accessing an object field
+     must be explicitly declared here, instead of being part
+     of `object_field_expr`.
+
+     Adding the bracketed expr there will make the grammar unclear
+     since Menhir will need to decide between parsing one of the options:
+     1) .identifier
+     2) .identifier[expr]
+
+     By tying to the scope, such as $[expr], the grammar is now clear
+     and Menhir doesn't need to decide on its own.
+  *)
+  | scope = obj_scope;
+    LEFT_SQR_BRACKET; e = assignable_expr; RIGHT_SQR_BRACKET;
+    chain = obj_field_chain
+    { ObjectFieldAccess (with_pos $startpos $endpos, scope, e :: chain) }
   ;
 
 %inline number:

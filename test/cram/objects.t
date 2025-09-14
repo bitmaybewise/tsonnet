@@ -9,3 +9,12 @@
 
   $ tsonnet ../../samples/objects/toplevel_bracket_lookup.jsonnet
   { "answer": 42, "answer_to_the_ultimate_question": 42 }
+
+  $ tsonnet ../../samples/objects/self_field_lookup_chain.jsonnet
+  { "answer": { "value": 42 }, "answer_to_the_ultimate_question": 42 }
+
+  $ tsonnet ../../samples/objects/self_field_indexed_access.jsonnet
+  { "arr": [ 1, 2, 3 ], "first": 1 }
+
+  $ tsonnet ../../samples/objects/toplevel_field_lookup_chain.jsonnet
+  { "answer": { "value": 42 }, "answer_to_the_ultimate_question": 42 }

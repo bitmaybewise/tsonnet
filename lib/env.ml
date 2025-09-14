@@ -41,8 +41,8 @@ let add_local = Map.add
 
 let add_local_when_not_present name value env =
   match find_opt name env with
-  | Some _ -> env
-  | None -> add_local name value env
+  | Some expr -> (env, expr)
+  | None -> let env = add_local name value env in (env, value)
 
 let uniq_field_ident (EnvId id) name =
   Printf.sprintf "%d->%s" id name

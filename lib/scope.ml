@@ -40,7 +40,7 @@ let rec _validate expr context =
     validate_ident pos varname context
   | Array (_, exprs) ->
     validate_expression_list exprs context
-  | Object (_, entries) ->
+  | ParsedObject (_, entries) ->
     (* Object validation - this is where scope context changes *)
     validate_object entries context
   | ObjectFieldAccess (pos, scope, _) ->

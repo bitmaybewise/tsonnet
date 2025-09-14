@@ -11,11 +11,15 @@ type tsonnet_type =
   | Tany
   | Tarray of tsonnet_type
   | Tobject of t_object_entry list
-  | TobjectSelf of Env.env_id
+  | TruntimeObject of Env.env_id * t_object_entry list
+  | TobjectPtr of Env.env_id * t_object_scope
   | Lazy of expr
 and t_object_entry =
   | TobjectField of string * tsonnet_type
   | TobjectExpr of tsonnet_type
+and t_object_scope =
+  | TobjectSelf
+  | TobjectTopLevel
 
 let rec to_string = function
   | Tunit -> "()"
@@ -33,7 +37,20 @@ let rec to_string = function
     "{" ^ (
       String.concat ", " (List.map field_to_string fields)
     ) ^ "}"
-  | TobjectSelf (Env.EnvId id) -> Printf.sprintf "self (%d)" id
+  | TruntimeObject (_, fields) ->
+    let field_to_string = function
+      | TobjectField (field, ty) -> field ^ " : " ^ to_string ty
+      | TobjectExpr ty -> to_string ty
+    in
+    "{" ^ (
+      String.concat ", " (List.map field_to_string fields)
+    ) ^ "}"
+  | TobjectPtr (Env.EnvId id, scope) ->
+    let s =
+      match scope with
+      | TobjectSelf -> "self"
+      | TobjectTopLevel -> "$"
+    in Printf.sprintf "%s (%d)" s id
   | Lazy ty -> string_of_type ty
 
 let rec check_cyclic_refs venv varname seen pos =
@@ -48,8 +65,8 @@ and check_expr_for_cycles venv expr seen =
   match expr with
   | Unit | Null _ | Number _ | String _ | Bool _ -> ok ()
   | Array (_, exprs) -> iter_for_cycles venv seen exprs
-  | Object (_, entries) -> check_object_for_cycles venv entries seen
-  | ObjectFieldAccess (pos, scope, field) -> check_object_field_for_cycles venv (pos, scope, field) seen
+  | ParsedObject (_, entries) -> check_object_for_cycles venv entries seen
+  | ObjectFieldAccess (pos, scope, exprs) -> check_object_field_chain_for_cycles venv (pos, scope, exprs) seen
   | Ident (pos, varname) -> check_cyclic_refs venv varname seen pos
   | BinOp (_, _, e1, e2) -> iter_for_cycles venv seen [e1; e2]
   | UnaryOp (_, _, e) -> check_expr_for_cycles venv e seen
@@ -69,13 +86,30 @@ and check_object_for_cycles venv entries seen =
     )
     (ok ())
     entries
-and check_object_field_for_cycles venv (pos, scope, field) seen =
+and check_object_field_for_cycles venv (pos, scope, field_expr) seen =
   (match Env.find_opt (string_of_object_scope scope) venv with
-  | Some (TobjectSelf obj_id) ->
-    let obj_field = Env.uniq_field_ident obj_id field in
-    check_cyclic_refs venv obj_field seen pos
+  | Some (TobjectPtr (obj_id, _)) ->
+    (match field_expr with
+    | String (_, field) | Ident (_, field) ->
+      let obj_field = Env.uniq_field_ident obj_id field in
+      check_cyclic_refs venv obj_field seen pos
+    | IndexedExpr (_, field, index_expr) ->
+      let obj_field = Env.uniq_field_ident obj_id field in
+      let* () = check_cyclic_refs venv obj_field seen pos in
+      check_expr_for_cycles venv index_expr seen
+    | _ -> ok ()
+    )
   | _ -> ok ()
   )
+
+and check_object_field_chain_for_cycles venv (pos, scope, exprs) seen =
+  List.fold_left
+    (fun result expr ->
+      let* () = result in
+      check_object_field_for_cycles venv (pos, scope, expr) seen
+    )
+    (ok ())
+    exprs
 
 let rec translate expr venv =
   match expr with
@@ -118,8 +152,8 @@ let rec translate expr venv =
           rest
       in ok (venv, Tarray ty)
     )
-  | Object (pos, entries) -> translate_object venv pos entries
-  | ObjectFieldAccess (pos, scope, field) -> translate_object_field_access venv pos scope field
+  | ParsedObject (pos, entries) -> translate_object venv pos entries
+  | ObjectFieldAccess (pos, scope, chain) -> translate_object_field_access venv pos scope chain
   | Local (pos, vars) ->
     let venv' = List.fold_left
       (* Adds an expr to the env to be evaluated at a later point in time (when required) *)
@@ -167,7 +201,8 @@ let rec translate expr venv =
         ~err:(Error.error_at pos)
     | ty -> Error.trace ("Expected Integer index, got " ^ to_string ty) pos >>= error
     )
-  | expr' -> error ("Invalid type " ^ string_of_type expr')
+  | expr' ->
+    error ("Invalid type " ^ string_of_type expr')
 
 and translate_lazy venv = function
   | Lazy expr -> translate expr venv
@@ -175,11 +210,13 @@ and translate_lazy venv = function
 
 and translate_object venv pos entries =
   let* obj_id = Env.Id.generate () in
-  let obj = TobjectSelf obj_id in
-  let venv' = Env.add_local "self" obj venv in
-  let venv' = Env.add_local_when_not_present "$" obj venv' in
+  let venv = Env.add_local "self" (TobjectPtr (obj_id, TobjectSelf)) venv in
+  let venv, _ =
+    Env.add_local_when_not_present "$" (TobjectPtr (obj_id, TobjectTopLevel)) venv
+  in
+
   (* Translate locals *)
-  let* venv'' = List.fold_left
+  let* venv = List.fold_left
     (fun result entry ->
       let* venv = result in
       match entry with
@@ -188,27 +225,29 @@ and translate_object venv pos entries =
       | ObjectField (attr, expr) ->
         ok (Env.add_obj_field attr (Lazy expr) obj_id venv)
     )
-    (ok venv')
+    (ok venv)
     entries
   in
+
   (* Check for cyclical references among object fields *)
   let* () = List.fold_left
       (fun ok' entry -> ok' >>= fun _ ->
         match entry with
         | ObjectField (attr, _) ->
-          check_cyclic_refs venv'' (Env.uniq_field_ident obj_id attr) [] pos
+          check_cyclic_refs venv (Env.uniq_field_ident obj_id attr) [] pos
         | _ -> ok'
       )
       (ok ())
       entries
   in
+
   (* Then translate object fields *)
   let* entry_types = List.fold_left
     (fun result entry ->
       let* entries' = result in
       match entry with
       | ObjectField (attr, _) ->
-        let* (_, entry_ty) = Env.get_obj_field attr obj_id venv''
+        let* (_, entry_ty) = Env.get_obj_field attr obj_id venv
           ~succ:translate_lazy
           ~err:(Error.error_at pos)
         in ok (entries' @ [TobjectField (attr, entry_ty)])
@@ -218,19 +257,59 @@ and translate_object venv pos entries =
     (ok [])
     entries
   in
-  ok (venv, Tobject entry_types)
+  ok (venv, TruntimeObject (obj_id, entry_types))
 
-and translate_object_field_access venv pos scope field =
-  match Env.find_opt (string_of_object_scope scope) venv with
-  | Some (TobjectSelf obj_id) ->
-    Env.get_obj_field field obj_id venv
-      ~succ:translate_lazy
-      ~err:(Error.error_at pos)
-  | _ ->
-    Error.error_at pos
-      (if scope = Self
-      then Scope.self_out_of_scope
-      else Scope.no_toplevel_object)
+and translate_object_field_access venv pos scope chain_exprs =
+  let* obj =
+    match Env.find_opt (string_of_object_scope scope) venv with
+    | Some (TobjectPtr _ as obj) -> ok obj
+    | _ ->
+      Error.error_at pos
+        (match scope with
+        | Self -> Scope.self_out_of_scope
+        | TopLevel -> Scope.no_toplevel_object)
+  in
+
+  List.fold_left
+    (fun acc field_expr ->
+      let* (venv, prev_ty) = acc in
+
+      let get_obj_id =
+        match prev_ty with
+        | TobjectPtr (obj_id, _) -> ok obj_id
+        | TruntimeObject (obj_id, _) -> ok obj_id
+        | _ -> Error.error_at pos "Must be an object"
+      in
+
+      match field_expr with
+      | String (_, field) | Ident (_, field) ->
+        let* obj_id = get_obj_id in
+        Env.get_obj_field field obj_id venv
+          ~succ:translate_lazy
+          ~err:(Error.error_at pos)
+      | IndexedExpr (pos, field, index_expr) ->
+        let* (venv', index_expr_ty) = translate index_expr venv in
+        let* () =
+          match index_expr_ty with
+          | Tnumber | Tstring -> ok ()
+          | ty -> Error.error_at pos (to_string ty ^ " is a non-indexable type")
+        in
+        let* obj_id = get_obj_id in
+        let* (venv', ty) =
+          Env.get_obj_field field obj_id venv'
+            ~succ:translate_lazy
+            ~err:(Error.error_at pos)
+        in
+        (match ty with
+        | (Tarray _) as array_ty -> ok (venv', array_ty)
+        | Tstring as ty -> ok (venv', ty)
+        | _ -> Error.error_at pos (field ^ " is a non-indexable value")
+        )
+      | _ ->
+        Error.error_at pos ("Invalid object lookup key: " ^ string_of_type field_expr)
+    )
+    (ok (venv, obj))
+    chain_exprs
 
 let check expr =
   Scope.validate expr
@@ -238,3 +317,4 @@ let check expr =
   >>= fun _ ->
     Env.Id.reset ();
     ok expr
+

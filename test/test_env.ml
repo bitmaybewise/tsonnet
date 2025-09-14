@@ -31,7 +31,7 @@ let rec gen_expr_sized n =
           (QCheck.Gen.list_size (QCheck.Gen.int_range 0 3) (gen_expr_sized (n-1)))
         );
         (2, QCheck.Gen.map2
-          (fun pos entries -> Object (pos, entries))
+          (fun pos entries -> ParsedObject (pos, entries))
           pos_gen
           (QCheck.Gen.list_size
             (QCheck.Gen.int_range 0 3)

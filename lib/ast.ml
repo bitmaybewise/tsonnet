@@ -29,6 +29,13 @@ let dummy_pos = {
   endpos = Lexing.dummy_pos;
 }
 
+module StringSet = struct
+  type t = string
+  let compare = String.compare
+end
+
+module ObjectFields = Set.Make(StringSet)
+
 type expr =
   | Unit
   | Null of position
@@ -37,9 +44,10 @@ type expr =
   | String of position * string
   | Ident of position * string
   | Array of position * expr list
-  | Object of position * object_entry list
-  | ObjectSelf of Env.env_id
-  | ObjectFieldAccess of position * object_scope * string
+  | ParsedObject of position * object_entry list
+  | RuntimeObject of position * Env.env_id * ObjectFields.t
+  | ObjectPtr of Env.env_id * object_scope
+  | ObjectFieldAccess of position * object_scope * expr list
   | BinOp of position * bin_op * expr * expr
   | UnaryOp of position * unary_op * expr
   | Local of position * (string * expr) list
@@ -63,17 +71,24 @@ let string_of_object_scope = function
   | Self -> "self"
   | TopLevel -> "$"
 
-let string_of_type = function
+let rec string_of_type = function
   | Null _ -> "Null"
   | Number (_, number) ->
     (match number with
     | Int _ -> "Int"
     | Float _ -> "Float")
   | Bool _ -> "Bool"
-  | String _ -> "String"
-  | Ident _ -> "Identity"
-  | Array _ -> "Array"
-  | Object _ -> "Object"
+  | String (_, s) -> "\"" ^ s ^ "\""
+  | Ident (_, id) -> Printf.sprintf "Ident(%s)" id
+  | Array (_, items) ->
+    Printf.sprintf "[%s]"
+      (String.concat ", " (List.map string_of_type items))
+  | ParsedObject (_, fields) ->
+    Printf.sprintf "PlainObject{%s}"
+      (String.concat ", " (List.map string_of_object_entry fields))
+  | RuntimeObject (_, (Env.EnvId id), fields) ->
+    Printf.sprintf "obj<%d>{%s}" id
+      (String.concat ", " (ObjectFields.to_list fields))
   | BinOp (_, bin_op, _, _) ->
     let prefix = "Binary Operation" in
     let bin_op = match bin_op with
@@ -93,9 +108,19 @@ let string_of_type = function
   | Local _ -> "Local"
   | Unit -> "()"
   | Seq _ -> "Sequence"
-  | IndexedExpr _ -> "Indexed Expression"
-  | ObjectSelf _ -> "self"
-  | ObjectFieldAccess (_, scope, field) -> Printf.sprintf "Object %s.%s" (string_of_object_scope scope) field
+  | IndexedExpr (_, field, expr) ->
+    Printf.sprintf "Indexed expr %s[%s]" field (string_of_type expr)
+  | ObjectPtr (EnvId id, scope) ->
+    Printf.sprintf "%s <%d>" (string_of_object_scope scope) id
+  | ObjectFieldAccess (_, scope, field_chain) ->
+    Printf.sprintf "%s.%s"
+      (string_of_object_scope scope)
+      (String.concat "." (List.map string_of_type field_chain))
+
+and string_of_object_entry = function
+  | ObjectField (field, expr) -> field ^ ": " ^ string_of_type expr
+  | ObjectExpr expr -> string_of_type expr
+
 
 module Indexable = struct
   let length (e : expr) =

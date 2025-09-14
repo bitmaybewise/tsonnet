@@ -21,14 +21,14 @@ let interpret_arith_op (op: bin_op) (n1: number) (n2: number) =
   | Divide, (Int a), (Float b) -> Float ((float_of_int a) /. b)
   | Divide, (Float a), (Float b) -> Float (a /. b)
 
-let interpret_concat_op (e1 : expr) (e2 : expr) : (expr, string) result =
+let interpret_concat_op env (e1 : expr) (e2 : expr) : (expr, string) result =
   match e1, e2 with
   | String (_, s1), String (_, s2) ->
     ok (String (dummy_pos, s1^s2))
   | String (_, s1), val2 ->
-    let* s2 = Json.expr_to_string val2 in ok (String (dummy_pos, s1^s2))
+    let* s2 = Json.expr_to_string (env, val2) in ok (String (dummy_pos, s1^s2))
   | val1, String (_, s2) ->
-    let* s1 = Json.expr_to_string val1 in ok (String (dummy_pos, s1^s2))
+    let* s1 = Json.expr_to_string (env, val1) in ok (String (dummy_pos, s1^s2))
   | _ ->
     error "Invalid string concatenation operation"
 
@@ -46,8 +46,9 @@ let rec interpret env expr =
   match expr with
   | Null _ | Bool _ | String _ | Number _ -> ok (env, expr)
   | Array (pos, exprs) -> interpret_array env (pos, exprs)
-  | Object (pos, entries) -> interpret_object env (pos, entries)
-  | ObjectFieldAccess (pos, scope, field) -> interpret_object_field_access env (pos, scope, field)
+  | ParsedObject (pos, entries) -> interpret_object env (pos, entries)
+  | RuntimeObject _ as runtime_obj -> ok (env, runtime_obj)
+  | ObjectFieldAccess (pos, scope, chain) -> interpret_object_field_access env (pos, scope, chain)
   | Ident (pos, varname) ->
     Env.find_var varname env
       ~succ:(fun env' expr -> interpret env' expr)
@@ -57,7 +58,7 @@ let rec interpret env expr =
     let* (env2, e2') = interpret env1 e2 in
     match op, e1', e2' with
     | Add, (String _ as v1), (_ as v2) | Add, (_ as v1), (String _ as v2) ->
-      let* expr' = interpret_concat_op v1 v2 in
+      let* expr' = interpret_concat_op env2 v1 v2 in
       ok (env, expr')
     | _, Number (pos, v1), Number (_, v2) ->
       ok (env2, Number (pos, interpret_arith_op op v1 v2))
@@ -89,7 +90,8 @@ let rec interpret env expr =
           ~error:(Error.error_at pos)
       )
       ~err:(Error.error_at pos)
-    | expr -> error (Printf.sprintf "Expression %s cannot be interpreted" (string_of_type expr))
+    | expr ->
+      error (Printf.sprintf "Expression %s cannot be interpreted" (string_of_type expr))
 
 and interpret_array env (pos, exprs) =
   let* (env', evaluated_exprs) = List.fold_left
@@ -104,61 +106,93 @@ and interpret_array env (pos, exprs) =
 
 and interpret_object env (pos, entries) =
   let* obj_id = Env.Id.generate () in
-  let obj = ObjectSelf obj_id in
-  let env' = Env.add_local "self" obj env in
-  let env' = Env.add_local_when_not_present "$" obj env' in
+  let self_expr = ObjectPtr (obj_id, Self) in
+  let env' = Env.add_local "self" self_expr env in
+  let env', toplevel_expr = Env.add_local_when_not_present "$" (ObjectPtr (obj_id, TopLevel)) env' in
   (* First add locals and object fields to env *)
-  let* env'' = List.fold_left
+  let* (env', fields) = List.fold_left
     (fun result entry ->
-      let* env' = result in
+      let* (env', fields) = result in
       match entry with
       | ObjectExpr expr ->
         (* ObjectExpr holds a single local. Interpreting
           it will add the expr to the environment *)
-        let* (env'', _) = interpret env' expr in (ok env'')
-      | ObjectField (attr, expr) ->
-        ok (Env.add_obj_field attr expr obj_id env')
+        let* (env', _) = interpret env' expr in ok (env', fields)
+      | ObjectField (name, expr) ->
+        let env' = Env.add_obj_field name expr obj_id env' in
+        ok (env', ObjectFields.add name fields)
     )
-    (ok env')
+    (ok (env', ObjectFields.empty))
     entries
   in
-  (* Then interpret after env is populated. This allows locals
-    and object fields to be accessed in a lazy evaluated manner. *)
-  let* evaluated_entries = List.fold_left
-    (fun result entry ->
-      let* entries' = result in
-      match entry with
-      | ObjectField (attr, _) ->
-        let* (_, entry) = Env.get_obj_field attr obj_id env''
-          ~succ:(fun env''' expr -> interpret env''' expr)
-          ~err:(Error.error_at pos)
-        in ok (entries' @ [ObjectField (attr, entry)])
-      | _ ->
-        (* Ignore previously evaluated expressions *)
-        result
-    )
-    (ok [])
-    entries
-  in
-  ok (env, Object (pos, evaluated_entries))
-
-and interpret_object_field_access env (pos, scope, field) =
-  let* (_, evaluated_expr) = Env.find_var (string_of_object_scope scope) env
-    ~succ:(fun env' expr ->
-      match expr with
-      | ObjectSelf obj_id ->
+  (* Then interpret object fields after env is populated *)
+  let* env' = ObjectFields.fold
+    (fun field acc ->
+      let* env' = acc in
+      let* (env', _expr) =
         Env.get_obj_field field obj_id env'
-          ~succ:interpret
+          ~succ:(interpret)
           ~err:(Error.error_at pos)
-      | _ ->
-        Error.error_at pos
-          (match scope with
-          | Self -> Scope.self_out_of_scope
-          | TopLevel -> Scope.no_toplevel_object)
+      in
+      (* self is removed by object evaluation, for this reason
+         we re-add self and $ to env' on each iteration here *)
+      let env' = Env.add_local "self" self_expr env' in
+      let env' = Env.add_local "$" toplevel_expr env' in
+      ok env'
     )
-    ~err:(Error.error_at pos)
-  in ok (env, evaluated_expr)
+    fields
+    (ok env')
+  in
 
-let eval expr =
-  let* (_env, evaluated_expr) = interpret Env.empty expr
-  in ok evaluated_expr
+  (* Remove self and $ from the resulting environment.
+     Posterior interpretations shouldn't have references to them. *)
+  let env' = Env.Map.remove "self" env' in
+  let env' = Env.Map.remove "$" env' in
+
+  ok (env', RuntimeObject (pos, obj_id, fields))
+
+and interpret_object_field_access env (pos, scope, chain_exprs) =
+  let* obj =
+    match Env.find_opt (string_of_object_scope scope) env with
+    | Some (ObjectPtr _ as obj) -> ok obj
+    | _ ->
+      Error.error_at pos
+        (match scope with
+        | Self -> Scope.self_out_of_scope
+        | TopLevel -> Scope.no_toplevel_object)
+  in
+  List.fold_left
+    (fun acc field_expr ->
+      let* (env', prev_expr) = acc in
+      let get_obj_id =
+        match prev_expr with
+        | ObjectPtr (obj_id, _) -> ok obj_id
+        | RuntimeObject (_, obj_id, _) -> ok obj_id
+        | _ -> Error.error_at pos "Must be an object"
+      in
+
+      match field_expr with
+      | String (pos, field) | Ident (pos, field) ->
+        let* obj_id = get_obj_id in
+        Env.get_obj_field field obj_id env'
+          ~succ:(interpret)
+          ~err:(Error.error_at pos)
+      | IndexedExpr (pos, field, index_expr) ->
+        let* obj_id = get_obj_id in
+        let* (env', index_expr') = interpret env' index_expr in
+        let* (env', indexable_expr) =
+          Env.get_obj_field field obj_id env'
+            ~succ:(interpret)
+            ~err:(Error.error_at pos)
+        in
+          Result.fold
+            (Indexable.get index_expr' indexable_expr)
+            ~ok:(fun e -> interpret env' e)
+            ~error:(Error.error_at pos)
+      | _e ->
+        Error.error_at pos "Invalid object lookup"
+    )
+    (ok (env, obj))
+    chain_exprs
+
+let eval expr = interpret Env.empty expr
