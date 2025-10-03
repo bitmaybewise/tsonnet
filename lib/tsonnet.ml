@@ -16,8 +16,10 @@ let parse (filename: string) =
   close_in input;
   result
 
-let run (filename: string) : (string, string) result =
+let run ?(skip_typecheck = false) (filename: string) : (string, string) result =
+  if skip_typecheck then
+    prerr_endline "Warning: Type checking is skipped. This is not recommended as it may lead to runtime errors.\n";
   parse filename
-    >>= Type.check
+    >>= (if skip_typecheck then ok else Type.check)
     >>= Interpreter.eval
     >>= Json.expr_to_string

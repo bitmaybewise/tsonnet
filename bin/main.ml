@@ -1,10 +1,13 @@
 let usage_msg = "tsonnet <file1> [<file2>] ..."
 let input_files = ref []
+let skip_typecheck = ref false
 let anonymous_fun filename = input_files := filename :: !input_files
-let spec_list = []
+let spec_list = [
+  ("--skip-typecheck", Arg.Set skip_typecheck, "Skip type checking step");
+]
 
 let run_parser filename =
-  match Tsonnet.run filename with
+  match Tsonnet.run ~skip_typecheck:!skip_typecheck filename with
   | Ok stringified_json -> print_endline stringified_json
   | Error err -> prerr_endline err; exit 1
 
