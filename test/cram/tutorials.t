@@ -1,7 +1,19 @@
   $ tsonnet ../../samples/tutorials/syntax.jsonnet
   {
     "cocktails": {
+      "Manhattan": {
+        "description": "A clear \\ red drink.",
+        "garnish": "Maraschino Cherry",
+        "ingredients": [
+          { "kind": "Rye", "qty": 2.5 },
+          { "kind": "Sweet Red Vermouth", "qty": 1 },
+          { "kind": "Angostura", "qty": "dash" }
+        ],
+        "served": "Straight Up"
+      },
       "Tom Collins": {
+        "description": "The Tom Collins is essentially gin and\nlemonade.  The bitters add complexity.\n",
+        "garnish": "Maraschino Cherry",
         "ingredients": [
           { "kind": "Farmer's Gin", "qty": 1.5 },
           { "kind": "Lemon", "qty": 1 },
@@ -9,19 +21,7 @@
           { "kind": "Soda", "qty": 2 },
           { "kind": "Angostura", "qty": "dash" }
         ],
-        "garnish": "Maraschino Cherry",
-        "served": "Tall",
-        "description": "The Tom Collins is essentially gin and\nlemonade.  The bitters add complexity.\n"
-      },
-      "Manhattan": {
-        "ingredients": [
-          { "kind": "Rye", "qty": 2.5 },
-          { "kind": "Sweet Red Vermouth", "qty": 1 },
-          { "kind": "Angostura", "qty": "dash" }
-        ],
-        "garnish": "Maraschino Cherry",
-        "served": "Straight Up",
-        "description": "A clear \\ red drink."
+        "served": "Tall"
       }
     }
   }
@@ -37,14 +37,14 @@
       "served": "Straight Up"
     },
     "Mojito": {
+      "garnish": "Lime wedge",
       "ingredients": [
-        { "kind": "Mint", "action": "muddle", "qty": 6, "unit": "leaves" },
+        { "action": "muddle", "kind": "Mint", "qty": 6, "unit": "leaves" },
         { "kind": "Banks Rum", "qty": 1.5 },
         { "kind": "Lime", "qty": 0.5 },
         { "kind": "Simple Syrup", "qty": 0.5 },
         { "kind": "Soda", "qty": 3 }
       ],
-      "garnish": "Lime wedge",
       "served": "Over crushed ice"
     }
   }

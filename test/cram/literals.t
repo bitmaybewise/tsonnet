@@ -39,10 +39,10 @@
 
   $ tsonnet ../../samples/literals/object.jsonnet
   {
-    "int_attr": 1,
-    "float_attr": 4.2,
-    "string_attr": "Hello, world!",
-    "null_attr": null,
     "array_attr": [ 1, false, {} ],
-    "obj_attr": { "a": true, "b": false, "c": { "d": [ 42 ] } }
+    "float_attr": 4.2,
+    "int_attr": 1,
+    "null_attr": null,
+    "obj_attr": { "a": true, "b": false, "c": { "d": [ 42 ] } },
+    "string_attr": "Hello, world!"
   }
