@@ -2,6 +2,8 @@ open Ast
 open Result
 open Syntax_sugar
 
+let translating_fields = ref ObjectFields.empty
+
 type tsonnet_type =
   | Tunit
   | Tnull
@@ -152,13 +154,21 @@ let rec translate venv expr =
   | Number _ -> ok (venv, Tnumber)
   | String _ -> ok (venv, Tstring)
   | Ident (pos, varname) ->
-    Env.find_var varname venv
-      ~succ:(fun venv ty ->
-        match ty with
-        | Lazy expr -> translate venv expr
-        | _ -> ok (venv, ty)
-      )
-      ~err:(Error.error_at pos)
+    if ObjectFields.mem varname !translating_fields then
+      Error.error_at pos (Error.Msg.type_cyclic_reference varname)
+    else begin
+      translating_fields := ObjectFields.add varname !translating_fields;
+      let result = Env.find_var varname venv
+        ~succ:(fun venv ty ->
+          match ty with
+          | Lazy expr -> translate venv expr
+          | _ -> ok (venv, ty)
+        )
+        ~err:(Error.error_at pos)
+      in
+      translating_fields := ObjectFields.remove varname !translating_fields;
+      result
+    end
   | Array (_pos, elems) ->
     (* As of now, we compare each element and if all have the same type,
       it is an array of this type, otherwise it will be an array of any.
@@ -298,32 +308,36 @@ and translate_object venv pos entries =
     entries
   in
 
-  (* Check for cyclical references among object fields *)
-  let* () = List.fold_left
-      (fun ok' entry -> ok' >>= fun _ ->
-        match entry with
-        | ObjectField (attr, _) ->
-          check_cyclic_refs venv (Env.uniq_field_ident obj_id attr) [] pos
-        | _ -> ok'
-      )
-      (ok ())
-      entries
-  in
-
-  (* Then translate object fields *)
-  let* entry_types = List.fold_left
-    (fun result entry ->
-      let* entries' = result in
+  (* Check for cyclical references among object fields
+    (warn, don't error when the reference is not part of
+    the evaluation tree)
+  *)
+  List.iter
+    (fun entry ->
       match entry with
       | ObjectField (attr, _) ->
-        let* (_, entry_ty) = Env.get_obj_field attr obj_id venv
+        (match check_cyclic_refs venv (Env.uniq_field_ident obj_id attr) [] pos with
+        | Ok () -> ()
+        | Error _ -> Error.warn (Error.Msg.type_cyclic_reference (Env.uniq_field_ident obj_id attr)) pos)
+      | _ -> ()
+    )
+    entries;
+
+  (* Translate object fields lazily: warn on errors, skip invalid fields *)
+  let entry_types = List.fold_left
+    (fun entries' entry ->
+      match entry with
+      | ObjectField (attr, _) ->
+        (match Env.get_obj_field attr obj_id venv
           ~succ:translate_lazy
           ~err:(Error.error_at pos)
-        in ok (entries' @ [TobjectField (attr, entry_ty)])
+        with
+        | Ok (_, entry_ty) -> entries' @ [TobjectField (attr, entry_ty)]
+        | Error _ -> entries')
       | _ ->
-        result
+        entries'
     )
-    (ok [])
+    []
     entries
   in
   (* Remove self and $ from the environment to prevent leaking *)
@@ -372,9 +386,18 @@ and translate_object_field_access venv pos scope chain_exprs =
       match field_expr with
       | String (_, field) | Ident (_, field) ->
         let* obj_id = get_obj_id in
-        Env.get_obj_field field obj_id venv
-          ~succ:translate_lazy
-          ~err:(Error.error_at pos)
+        let key = Env.uniq_field_ident obj_id field in
+        if ObjectFields.mem key !translating_fields then
+          Error.error_at pos (Error.Msg.type_cyclic_reference key)
+        else begin
+          translating_fields := ObjectFields.add key !translating_fields;
+          let result = Env.get_obj_field field obj_id venv
+            ~succ:translate_lazy
+            ~err:(Error.error_at pos)
+          in
+          translating_fields := ObjectFields.remove key !translating_fields;
+          result
+        end
       | Number (pos, _) ->
         (* Handle numeric indexing of strings and arrays *)
         (match prev_ty with
@@ -429,4 +452,5 @@ let check (config : Config.t) expr  =
   else
     let* _ = translate Env.empty expr in
     Env.Id.reset ();
+    translating_fields := ObjectFields.empty;
     ok expr

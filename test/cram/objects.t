@@ -21,3 +21,14 @@
 
   $ tsonnet ../../samples/objects/merge.jsonnet
   { "a": 1, "b": 3, "c": 4 }
+
+  $ tsonnet ../../samples/objects/untouched_field.jsonnet
+  Warning: ../../samples/objects/untouched_field.jsonnet:1:0 Unused variable result
+  
+  1: local result = {
+     ^^^^^^^^^^^^^^^^
+  2:     a: 1,
+     ^^^^^^^^^
+  3:     b: 42,
+     ^^^^^^^^^^
+  42

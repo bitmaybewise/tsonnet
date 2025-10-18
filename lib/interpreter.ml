@@ -2,6 +2,8 @@ open Ast
 open Result
 open Syntax_sugar
 
+let evaluating_fields = ref ObjectFields.empty
+
 let interpret_unary_op (op: unary_op) (evaluated_expr: expr) =
   match op, evaluated_expr with
   | Plus, number -> ok number
@@ -21,9 +23,17 @@ let rec interpret env expr =
   | ObjectPtr _ as obj_ptr -> ok (env, obj_ptr)
   | ObjectFieldAccess (pos, scope, chain) -> interpret_object_field_access env (pos, scope, chain)
   | Ident (pos, varname) ->
-    Env.find_var varname env
-      ~succ:(fun env' expr -> interpret env' expr)
-      ~err:(Error.error_at pos)
+    if ObjectFields.mem varname !evaluating_fields then
+      Error.error_at pos (Error.Msg.type_cyclic_reference varname)
+    else begin
+      evaluating_fields := ObjectFields.add varname !evaluating_fields;
+      let result = Env.find_var varname env
+        ~succ:(fun env' expr -> interpret env' expr)
+        ~err:(Error.error_at pos)
+      in
+      evaluating_fields := ObjectFields.remove varname !evaluating_fields;
+      result
+    end
   | BinOp (pos, op, e1, e2) -> interpret_bin_op env (pos, op, e1, e2)
   | UnaryOp (pos, op, expr) ->
     let* (env', expr') = interpret env expr in
@@ -201,9 +211,18 @@ and interpret_object_field_access env (pos, scope, chain_exprs) =
       match field_expr with
       | String (pos, field) | Ident (pos, field) ->
         let* (obj_id, field_env) = get_obj_id in
-        Env.get_obj_field field obj_id field_env
-          ~succ:(interpret)
-          ~err:(Error.error_at pos)
+        let key = Env.uniq_field_ident obj_id field in
+        if ObjectFields.mem key !evaluating_fields then
+          Error.error_at pos (Error.Msg.type_cyclic_reference key)
+        else begin
+          evaluating_fields := ObjectFields.add key !evaluating_fields;
+          let result = Env.get_obj_field field obj_id field_env
+            ~succ:(interpret)
+            ~err:(Error.error_at pos)
+          in
+          evaluating_fields := ObjectFields.remove key !evaluating_fields;
+          result
+        end
       | Number _ as index_expr ->
         (* Handle array/string indexing: prev_expr[number] *)
         Result.fold
@@ -223,19 +242,27 @@ and interpret_runtime_object env (pos, obj_env, fields) =
 and interpret_runtime_object_fields obj_env fields =
   match Env.Map.find_opt "self" obj_env with
   | Some (ObjectPtr (obj_id, _)) ->
-    let* field_list =
+    let field_list =
       ObjectFields.fold
         (fun field acc ->
-          let* evaluated_fields = acc in
           let key = Env.uniq_field_ident obj_id field in
-          match Env.Map.find_opt key obj_env with
-          | Some expr ->
-            let* (_, evaluated) = interpret obj_env expr in
-            ok ((field, evaluated) :: evaluated_fields)
-          | None -> acc
+          if ObjectFields.mem key !evaluating_fields then
+            acc (* Skip: cyclic reference detected *)
+          else
+            match Env.Map.find_opt key obj_env with
+            | Some expr ->
+              evaluating_fields := ObjectFields.add key !evaluating_fields;
+              let result =
+                match interpret obj_env expr with
+                | Ok (_, evaluated) -> (field, evaluated) :: acc
+                | Error _ -> acc
+              in
+              evaluating_fields := ObjectFields.remove key !evaluating_fields;
+              result
+            | None -> acc
         )
         fields
-        (ok [])
+        []
     in ok (List.rev field_list)
   | _ -> ok []
 
