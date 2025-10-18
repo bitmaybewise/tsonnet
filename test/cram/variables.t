@@ -39,3 +39,14 @@
       "served": "Straight Up"
     }
   }
+
+  $ tsonnet ../../samples/variables/untouched_invalid_variable.jsonnet
+  Warning: ../../samples/variables/untouched_invalid_variable.jsonnet:1:31 Cyclic reference found for c
+  
+  1: local a = 1, b = a, c = d, d = c;
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  Warning: ../../samples/variables/untouched_invalid_variable.jsonnet:1:24 Cyclic reference found for d
+  
+  1: local a = 1, b = a, c = d, d = c;
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1

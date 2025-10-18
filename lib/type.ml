@@ -53,6 +53,39 @@ let rec to_string = function
     in Printf.sprintf "%s (%d)" s id
   | Lazy ty -> string_of_type ty
 
+let rec collect_free_idents = function
+  | Unit | Null _ | Number _ | String _ | Bool _ -> []
+  | Ident (_, name) -> [name]
+  | Array (_, exprs) -> List.concat_map collect_free_idents exprs
+  | BinOp (_, _, e1, e2) -> collect_free_idents e1 @ collect_free_idents e2
+  | UnaryOp (_, _, e) -> collect_free_idents e
+  | Seq exprs -> List.concat_map collect_free_idents exprs
+  | ParsedObject (_, entries) ->
+    List.concat_map (function
+      | ObjectField (_, e) -> collect_free_idents e
+      | ObjectExpr e -> collect_free_idents e
+    ) entries
+  | ObjectFieldAccess (_, _, exprs) -> List.concat_map collect_free_idents exprs
+  | IndexedExpr (_, name, e) -> name :: collect_free_idents e
+  | Local (_, vars) -> List.concat_map (fun (_, e) -> collect_free_idents e) vars
+  | _ -> []
+
+let reachable_bindings bindings initial_idents =
+  let rec go visited = function
+    | [] -> visited
+    | name :: rest ->
+      if List.mem name visited
+      then go visited rest
+      else
+        let new_idents =
+          match List.assoc_opt name bindings with
+          | Some expr -> collect_free_idents expr
+          | None -> []
+        in
+        go (name :: visited) (new_idents @ rest)
+  in
+  go [] initial_idents
+
 let rec check_cyclic_refs venv varname seen pos =
   if List.mem varname seen
   then
@@ -154,23 +187,15 @@ let rec translate venv expr =
     )
   | ParsedObject (pos, entries) -> translate_object venv pos entries
   | ObjectFieldAccess (pos, scope, chain) -> translate_object_field_access venv pos scope chain
-  | Local (pos, vars) ->
+  | Local (_pos, vars) ->
     let venv' = List.fold_left
       (* Adds an expr to the env to be evaluated at a later point in time (when required) *)
       (fun venv (varname, var_expr) -> Env.add_local varname (Lazy var_expr) venv)
       venv
       vars
-    in
-    let* _ = List.fold_left
-      (fun ok' (varname, _) -> ok' >>= fun _ -> check_cyclic_refs venv' varname [] pos)
-      (ok ())
-      vars
     in ok (venv', Tunit)
   | Seq exprs ->
-    List.fold_left
-      (fun acc expr -> acc >>= fun (venv, _) -> translate venv expr)
-      (ok (venv, Tunit))
-      exprs
+    translate_seq venv exprs
   | BinOp (pos, op, e1, e2) ->
     translate_bin_op venv pos op e1 e2
   | UnaryOp (pos, op, expr) ->
@@ -197,6 +222,50 @@ let rec translate venv expr =
     )
   | expr' ->
     error (Error.Msg.type_invalid_expr (string_of_type expr'))
+
+and translate_seq venv exprs =
+  let rec collect_locals = function
+    | Local (pos, vars) :: rest ->
+      let (all_vars, body) = collect_locals rest in
+      (List.map (fun v -> (pos, v)) vars @ all_vars, body)
+    | rest -> ([], rest)
+  in
+  let rec go venv = function
+    | [] -> ok (venv, Tunit)
+    | [expr] -> translate venv expr
+    | (Local _ :: _) as exprs ->
+      let (all_pos_vars, body) = collect_locals exprs in
+      let all_vars = List.map snd all_pos_vars in
+      (* Add all local bindings to env *)
+      let venv' = List.fold_left
+        (fun venv (varname, var_expr) ->
+          Env.add_local varname (Lazy var_expr) venv
+        )
+        venv
+        all_vars
+      in
+      (* Determine which vars are reachable from the body *)
+      let body_idents = List.concat_map collect_free_idents body in
+      let reachable = reachable_bindings all_vars body_idents in
+      (* Check cycles: error for reachable, warn for unreachable *)
+      let* () = List.fold_left
+        (fun acc (pos, (varname, _)) -> acc >>= fun () ->
+          match check_cyclic_refs venv' varname [] pos with
+          | Ok () -> ok ()
+          | Error msg ->
+            if List.mem varname reachable
+            then error msg
+            else (prerr_endline ("Warning: " ^ msg); ok ())
+        )
+        (ok ())
+        all_pos_vars
+      in
+      go venv' body
+    | expr :: rest ->
+      let* (venv', _) = translate venv expr in
+      go venv' rest
+  in
+  go venv exprs
 
 and translate_lazy venv = function
   | Lazy expr -> translate venv expr

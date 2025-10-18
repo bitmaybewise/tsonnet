@@ -9,9 +9,9 @@
   [1]
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle.jsonnet
-  ../../samples/semantics/invalid_binding_cycle.jsonnet:1:10 Cyclic reference found for c
+  ../../samples/semantics/invalid_binding_cycle.jsonnet:3:10 Cyclic reference found for a
   
-  1: local a = c;
+  3: local c = a;
      ^^^^^^^^^^^^
   [1]
 
@@ -30,31 +30,31 @@
   [1]
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_object_locals.jsonnet
-  ../../samples/semantics/invalid_binding_cycle_object_locals.jsonnet:3:14 Cyclic reference found for c
+  ../../samples/semantics/invalid_binding_cycle_object_locals.jsonnet:4:14 Cyclic reference found for b
   
-  3:     local b = c,
+  4:     local c = b,
      ^^^^^^^^^^^^^^^^
   [1]
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_binop.jsonnet
-  ../../samples/semantics/invalid_binding_cycle_binop.jsonnet:1:10 Cyclic reference found for b
+  ../../samples/semantics/invalid_binding_cycle_binop.jsonnet:2:10 Cyclic reference found for a
   
-  1: local a = b;
-     ^^^^^^^^^^^^
+  2: local b = a + 1;
+     ^^^^^^^^^^^^^^^^
   [1]
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_unaryop.jsonnet
-  ../../samples/semantics/invalid_binding_cycle_unaryop.jsonnet:1:10 Cyclic reference found for b
+  ../../samples/semantics/invalid_binding_cycle_unaryop.jsonnet:2:11 Cyclic reference found for a
   
-  1: local a = b;
-     ^^^^^^^^^^^^
+  2: local b = ~a;
+     ^^^^^^^^^^^^^
   [1]
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_local.jsonnet
-  ../../samples/semantics/invalid_binding_cycle_local.jsonnet:1:10 Cyclic reference found for b
+  ../../samples/semantics/invalid_binding_cycle_local.jsonnet:2:24 Cyclic reference found for a
   
-  1: local a = b;
-     ^^^^^^^^^^^^
+  2: local b = (local b = 4; a + b);
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   [1]
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_object_fields.jsonnet
