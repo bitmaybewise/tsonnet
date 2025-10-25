@@ -106,6 +106,7 @@ and interpret_array env (pos, exprs) =
 
 and interpret_object env (pos, entries) =
   let* obj_id = Env.Id.generate () in
+  let had_toplevel = Option.is_some (Env.find_opt "$" env) in
   let self_expr = ObjectPtr (obj_id, Self) in
   let env' = Env.add_local "self" self_expr env in
   let env', toplevel_expr = Env.add_local_when_not_present "$" (ObjectPtr (obj_id, TopLevel)) env' in
@@ -147,7 +148,7 @@ and interpret_object env (pos, entries) =
   (* Remove self and $ from the resulting environment.
      Posterior interpretations shouldn't have references to them. *)
   let env' = Env.Map.remove "self" env' in
-  let env' = Env.Map.remove "$" env' in
+  let env' = if had_toplevel then env' else Env.Map.remove "$" env' in
 
   ok (env', RuntimeObject (pos, obj_id, fields))
 

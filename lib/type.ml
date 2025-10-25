@@ -210,6 +210,7 @@ and translate_lazy venv = function
 
 and translate_object venv pos entries =
   let* obj_id = Env.Id.generate () in
+  let had_toplevel = Option.is_some (Env.find_opt "$" venv) in
   let venv = Env.add_local "self" (TobjectPtr (obj_id, TobjectSelf)) venv in
   let venv, _ =
     Env.add_local_when_not_present "$" (TobjectPtr (obj_id, TobjectTopLevel)) venv
@@ -257,6 +258,9 @@ and translate_object venv pos entries =
     (ok [])
     entries
   in
+  (* Remove self and $ from the environment to prevent leaking *)
+  let venv = Env.Map.remove "self" venv in
+  let venv = if had_toplevel then venv else Env.Map.remove "$" venv in
   ok (venv, TruntimeObject (obj_id, entry_types))
 
 and translate_object_field_access venv pos scope chain_exprs =
