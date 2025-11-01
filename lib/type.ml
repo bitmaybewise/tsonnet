@@ -111,7 +111,7 @@ and check_object_field_chain_for_cycles venv (pos, scope, exprs) seen =
     (ok ())
     exprs
 
-let rec translate expr venv =
+let rec translate venv expr =
   match expr with
   | Unit -> ok (venv, Tunit)
   | Null _ -> ok (venv, Tnull)
@@ -122,7 +122,7 @@ let rec translate expr venv =
     Env.find_var varname venv
       ~succ:(fun venv ty ->
         match ty with
-        | Lazy expr -> translate expr venv
+        | Lazy expr -> translate venv expr
         | _ -> ok (venv, ty)
       )
       ~err:(Error.error_at pos)
@@ -168,26 +168,26 @@ let rec translate expr venv =
     in ok (venv', Tunit)
   | Seq exprs ->
     List.fold_left
-      (fun acc expr -> acc >>= fun (venv, _) -> translate expr venv)
+      (fun acc expr -> acc >>= fun (venv, _) -> translate venv expr)
       (ok (venv, Tunit))
       exprs
   | BinOp (pos, op, e1, e2) ->
-    (let* (venv', e1') = translate e1 venv in
-    let* (venv'', e2') = translate e2 venv' in
+    (let* (venv', e1') = translate venv e1 in
+    let* (venv'', e2') = translate venv' e2 in
     match op, e1', e2' with
     | _, Tnumber, Tnumber -> ok (venv'', Tnumber)
     | Add, _, Tstring | Add, Tstring, _ -> ok (venv'', Tstring)
     | _ -> Error.trace "Invalid binary operation" pos >>= error
     )
   | UnaryOp (pos, op, expr) ->
-    (let* (venv', expr') = translate expr venv in
+    (let* (venv', expr') = translate venv expr in
     match op, expr' with
     | Plus, Tnumber | Minus, Tnumber | BitwiseNot, Tnumber -> ok (venv', Tnumber)
     | Not, Tbool | BitwiseNot, Tbool -> ok (venv', Tbool)
     | _ -> Error.trace "Invalid unary operation" pos >>= error
     )
   | IndexedExpr (pos, varname, index_expr) ->
-    (let* (venv', index_expr') = translate index_expr venv in
+    (let* (venv', index_expr') = translate venv index_expr in
     match index_expr' with
     | Tnumber ->
       Env.find_var varname venv'
@@ -195,7 +195,7 @@ let rec translate expr venv =
           match expr' with
           | (Tarray _) as ty -> ok (venv', ty)
           | Tstring as ty -> ok (venv', ty)
-          | Lazy expr -> translate expr venv
+          | Lazy expr -> translate venv expr
           | ty -> error (to_string ty ^ " is a non indexable value")
         )
         ~err:(Error.error_at pos)
@@ -205,7 +205,7 @@ let rec translate expr venv =
     error ("Invalid type " ^ string_of_type expr')
 
 and translate_lazy venv = function
-  | Lazy expr -> translate expr venv
+  | Lazy expr -> translate venv expr
   | ty -> error ("Invalid type " ^ to_string ty)
 
 and translate_object venv pos entries =
@@ -222,7 +222,7 @@ and translate_object venv pos entries =
       let* venv = result in
       match entry with
       | ObjectExpr expr ->
-        let* (venv', _) = translate expr venv in (ok venv')
+        let* (venv', _) = translate venv expr in (ok venv')
       | ObjectField (attr, expr) ->
         ok (Env.add_obj_field attr (Lazy expr) obj_id venv)
     )
@@ -292,7 +292,7 @@ and translate_object_field_access venv pos scope chain_exprs =
           ~succ:translate_lazy
           ~err:(Error.error_at pos)
       | IndexedExpr (pos, field, index_expr) ->
-        let* (venv', index_expr_ty) = translate index_expr venv in
+        let* (venv', index_expr_ty) = translate venv index_expr in
         let* () =
           match index_expr_ty with
           | Tnumber | Tstring -> ok ()
@@ -317,7 +317,7 @@ and translate_object_field_access venv pos scope chain_exprs =
 
 let check expr =
   Scope.validate expr
-  >>= fun _ -> translate expr Env.empty
+  >>= fun _ -> translate Env.empty expr
   >>= fun _ ->
     Env.Id.reset ();
     ok expr
