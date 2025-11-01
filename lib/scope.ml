@@ -12,9 +12,6 @@ type context = {
   current_locals: string list;
 }
 
-let self_out_of_scope = "Can't use self outside of an object"
-let no_toplevel_object = "No top-level object found"
-
 let empty_context = {
   in_object = false;
   object_depth = 0;
@@ -61,8 +58,8 @@ let rec _validate expr context =
 
 and validate_ident pos varname context =
   match (varname, context.in_object) with
-  | ("self", false) -> Error.trace self_out_of_scope pos >>= error
-  | ("$", false) -> Error.trace no_toplevel_object pos >>= error
+  | ("self", false) -> Error.trace Error.Msg.self_out_of_scope pos >>= error
+  | ("$", false) -> Error.trace Error.Msg.no_toplevel_object pos >>= error
   | _ -> ok ()
 
 and validate_expression_list exprs context =
@@ -109,8 +106,8 @@ and validate_object_field_access pos scope context =
   if not context.in_object
   then
     let with_error_msg = match scope with
-                        | Self -> self_out_of_scope
-                        | TopLevel -> no_toplevel_object
+                        | Self -> Error.Msg.self_out_of_scope
+                        | TopLevel -> Error.Msg.no_toplevel_object
     in
     Error.trace with_error_msg pos >>= error
   else ok ()

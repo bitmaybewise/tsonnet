@@ -30,7 +30,7 @@ let interpret_concat_op env (e1 : expr) (e2 : expr) : (expr, string) result =
   | val1, String (_, s2) ->
     let* s1 = Json.expr_to_string (env, val1) in ok (String (dummy_pos, s1^s2))
   | _ ->
-    error "Invalid string concatenation operation"
+    error Error.Msg.interp_invalid_concat
 
 let interpret_unary_op (op: unary_op) (evaluated_expr: expr) =
   match op, evaluated_expr with
@@ -39,7 +39,7 @@ let interpret_unary_op (op: unary_op) (evaluated_expr: expr) =
   | Minus, Number (pos, Float f) -> ok (Number (pos, Float (-. f)))
   | Not, (Bool (pos, b)) -> ok (Bool (pos, not b))
   | BitwiseNot, Number (pos, Int i) -> ok (Number (pos, Int (lnot i)))
-  | _ -> error "Invalid unary operation"
+  | _ -> error Error.Msg.invalid_unary_op
 
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
@@ -63,7 +63,7 @@ let rec interpret env expr =
     | _, Number (pos, v1), Number (_, v2) ->
       ok (env2, Number (pos, interpret_arith_op op v1 v2))
     | _ ->
-      Error.trace "Invalid binary operation" pos >>= error
+      Error.trace Error.Msg.invalid_binary_op pos >>= error
     )
   | UnaryOp (pos, op, expr) ->
     let* (env', expr') = interpret env expr in
@@ -91,7 +91,7 @@ let rec interpret env expr =
       )
       ~err:(Error.error_at pos)
     | expr ->
-      error (Printf.sprintf "Expression %s cannot be interpreted" (string_of_type expr))
+      error (Error.Msg.interp_cannot_interpret (string_of_type expr))
 
 and interpret_array env (pos, exprs) =
   let* (env', evaluated_exprs) = List.fold_left
@@ -159,8 +159,8 @@ and interpret_object_field_access env (pos, scope, chain_exprs) =
     | _ ->
       Error.error_at pos
         (match scope with
-        | Self -> Scope.self_out_of_scope
-        | TopLevel -> Scope.no_toplevel_object)
+        | Self -> Error.Msg.self_out_of_scope
+        | TopLevel -> Error.Msg.no_toplevel_object)
   in
   List.fold_left
     (fun acc field_expr ->
@@ -169,7 +169,7 @@ and interpret_object_field_access env (pos, scope, chain_exprs) =
         match prev_expr with
         | ObjectPtr (obj_id, _) -> ok obj_id
         | RuntimeObject (_, obj_id, _) -> ok obj_id
-        | _ -> Error.error_at pos "Must be an object"
+        | _ -> Error.error_at pos Error.Msg.must_be_object
       in
 
       match field_expr with
@@ -191,7 +191,7 @@ and interpret_object_field_access env (pos, scope, chain_exprs) =
             ~ok:(fun e -> interpret env' e)
             ~error:(Error.error_at pos)
       | _e ->
-        Error.error_at pos "Invalid object lookup"
+        Error.error_at pos Error.Msg.interp_invalid_lookup
     )
     (ok (env, obj))
     chain_exprs

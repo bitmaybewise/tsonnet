@@ -56,7 +56,7 @@ let rec to_string = function
 let rec check_cyclic_refs venv varname seen pos =
   if List.mem varname seen
   then
-    Error.trace ("Cyclic reference found for " ^ varname) pos >>= error
+    Error.trace (Error.Msg.type_cyclic_reference varname) pos >>= error
   else
     match Env.find_opt varname venv with
     | Some (Lazy expr) -> check_expr_for_cycles venv expr (varname :: seen)
@@ -177,14 +177,14 @@ let rec translate venv expr =
     match op, e1', e2' with
     | _, Tnumber, Tnumber -> ok (venv'', Tnumber)
     | Add, _, Tstring | Add, Tstring, _ -> ok (venv'', Tstring)
-    | _ -> Error.trace "Invalid binary operation" pos >>= error
+    | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
     )
   | UnaryOp (pos, op, expr) ->
     (let* (venv', expr') = translate venv expr in
     match op, expr' with
     | Plus, Tnumber | Minus, Tnumber | BitwiseNot, Tnumber -> ok (venv', Tnumber)
     | Not, Tbool | BitwiseNot, Tbool -> ok (venv', Tbool)
-    | _ -> Error.trace "Invalid unary operation" pos >>= error
+    | _ -> Error.trace Error.Msg.invalid_unary_op pos >>= error
     )
   | IndexedExpr (pos, varname, index_expr) ->
     (let* (venv', index_expr') = translate venv index_expr in
@@ -196,17 +196,17 @@ let rec translate venv expr =
           | (Tarray _) as ty -> ok (venv', ty)
           | Tstring as ty -> ok (venv', ty)
           | Lazy expr -> translate venv expr
-          | ty -> error (to_string ty ^ " is a non indexable value")
+          | ty -> error (Error.Msg.type_non_indexable_value (to_string ty))
         )
         ~err:(Error.error_at pos)
-    | ty -> Error.trace ("Expected Integer index, got " ^ to_string ty) pos >>= error
+    | ty -> Error.trace (Error.Msg.type_expected_integer_index (to_string ty)) pos >>= error
     )
   | expr' ->
-    error ("Invalid type " ^ string_of_type expr')
+    error (Error.Msg.type_invalid_expr (string_of_type expr'))
 
 and translate_lazy venv = function
   | Lazy expr -> translate venv expr
-  | ty -> error ("Invalid type " ^ to_string ty)
+  | ty -> error (Error.Msg.type_invalid_expr (to_string ty))
 
 and translate_object venv pos entries =
   let* obj_id = Env.Id.generate () in
@@ -270,8 +270,8 @@ and translate_object_field_access venv pos scope chain_exprs =
     | _ ->
       Error.error_at pos
         (match scope with
-        | Self -> Scope.self_out_of_scope
-        | TopLevel -> Scope.no_toplevel_object)
+        | Self -> Error.Msg.self_out_of_scope
+        | TopLevel -> Error.Msg.no_toplevel_object)
   in
 
   List.fold_left
@@ -282,7 +282,7 @@ and translate_object_field_access venv pos scope chain_exprs =
         match prev_ty with
         | TobjectPtr (obj_id, _) -> ok obj_id
         | TruntimeObject (obj_id, _) -> ok obj_id
-        | _ -> Error.error_at pos "Must be an object"
+        | _ -> Error.error_at pos Error.Msg.must_be_object
       in
 
       match field_expr with
@@ -296,7 +296,7 @@ and translate_object_field_access venv pos scope chain_exprs =
         let* () =
           match index_expr_ty with
           | Tnumber | Tstring -> ok ()
-          | ty -> Error.error_at pos (to_string ty ^ " is a non-indexable type")
+          | ty -> Error.error_at pos (Error.Msg.type_non_indexable_type (to_string ty))
         in
         let* obj_id = get_obj_id in
         let* (venv', ty) =
@@ -307,10 +307,10 @@ and translate_object_field_access venv pos scope chain_exprs =
         (match ty with
         | (Tarray _) as array_ty -> ok (venv', array_ty)
         | Tstring as ty -> ok (venv', ty)
-        | _ -> Error.error_at pos (field ^ " is a non-indexable value")
+        | _ -> Error.error_at pos (Error.Msg.type_non_indexable_field field)
         )
       | _ ->
-        Error.error_at pos ("Invalid object lookup key: " ^ string_of_type field_expr)
+        Error.error_at pos (Error.Msg.type_invalid_lookup_key (string_of_type field_expr))
     )
     (ok (venv, obj))
     chain_exprs
