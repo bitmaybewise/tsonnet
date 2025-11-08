@@ -5,24 +5,32 @@ type bin_op =
   | Subtract
   | Multiply
   | Divide
-  [@@deriving qcheck]
+  [@@deriving qcheck, show]
 
 type unary_op =
   | Plus
   | Minus
   | Not
   | BitwiseNot
-  [@@deriving qcheck]
+  [@@deriving qcheck, show]
 
 type number =
   | Int of int
   | Float of float
-  [@@deriving qcheck]
+  [@@deriving qcheck, show]
 
 type position = {
   startpos: Lexing.position;
   endpos: Lexing.position;
 }
+
+let pp_position fmt pos =
+  Format.fprintf fmt "%d:%d"
+    pos.startpos.pos_lnum
+    pos.endpos.pos_lnum
+
+let show_position pos =
+  Format.asprintf "%a" pp_position pos
 
 let dummy_pos = {
   startpos = Lexing.dummy_pos;
@@ -34,7 +42,16 @@ module StringSet = struct
   let compare = String.compare
 end
 
-module ObjectFields = Set.Make(StringSet)
+module ObjectFields = struct
+  include Set.Make(StringSet)
+
+  let pp fmt s =
+    Format.fprintf fmt "{%s}"
+      (String.concat ", " (to_list s))
+
+  let show s =
+    Format.asprintf "%a" pp s
+end
 
 type expr =
   | Unit
@@ -45,8 +62,8 @@ type expr =
   | Ident of position * string
   | Array of position * expr list
   | ParsedObject of position * object_entry list
-  | RuntimeObject of position * Env.env_id * ObjectFields.t
-  | ObjectPtr of Env.env_id * object_scope
+  | RuntimeObject of position * (Env.env_id [@opaque]) * ObjectFields.t
+  | ObjectPtr of (Env.env_id [@opaque]) * object_scope
   | ObjectFieldAccess of position * object_scope * expr list
   | BinOp of position * bin_op * expr * expr
   | UnaryOp of position * unary_op * expr
@@ -59,6 +76,7 @@ and object_entry =
 and object_scope =
   | Self
   | TopLevel
+[@@deriving show]
 
 let dummy_expr = Unit
 

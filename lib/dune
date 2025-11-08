@@ -4,7 +4,7 @@
   (backend bisect_ppx))
  (libraries yojson)
  (preprocess
-  (pps ppx_deriving_qcheck)))
+  (pps ppx_deriving.show ppx_deriving_qcheck)))
 
 (menhir
  (modules parser))
