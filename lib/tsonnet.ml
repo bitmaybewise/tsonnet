@@ -12,8 +12,8 @@ let parse (filename: string) =
     try ok (Parser.prog Lexer.read lexbuf)
     with
     | Lexer.SyntaxError err -> (Error.trace err (Ast.pos_from_lexbuf lexbuf)) >>= error
-    | Parser.Error -> (Error.trace "Invalid syntax" (Ast.pos_from_lexbuf lexbuf)) >>= error
-    | Failure err -> Error.trace ("Invalid token error: " ^ err) (Ast.pos_from_lexbuf lexbuf) >>= error
+    | Parser.Error -> (Error.trace Error.Msg.parse_error (Ast.pos_from_lexbuf lexbuf)) >>= error
+    | Failure err -> Error.trace (Error.Msg.parse_invalid_token err) (Ast.pos_from_lexbuf lexbuf) >>= error
   in
   close_in input;
   result

@@ -11,6 +11,10 @@ module Msg : sig
   val invalid_unary_op : string
   val must_be_object : string
 
+  (* Parser messages *)
+  val parse_error : string
+  val parse_invalid_token : string -> string
+
   (* Type checker messages *)
   val type_cyclic_reference : string -> string
   val type_non_indexable_value : string -> string

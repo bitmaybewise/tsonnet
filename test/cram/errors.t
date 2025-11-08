@@ -45,7 +45,7 @@
   [1]
 
   $ tsonnet ../../samples/errors/unscoped_local.jsonnet
-  ../../samples/errors/unscoped_local.jsonnet:1:15 Invalid syntax
+  ../../samples/errors/unscoped_local.jsonnet:1:15 Parsing error. Invalid syntax:
   
   1: local a = local b = 1;
      ^^^^^^^^^^^^^^^^

@@ -14,6 +14,10 @@ module Msg = struct
   let invalid_unary_op = "Invalid unary operation"
   let must_be_object = "Must be an object"
 
+  (* Parser messages *)
+  let parse_error = "Parsing error. Invalid syntax:"
+  let parse_invalid_token err = "Invalid token error: " ^ err
+
   (* Type checker messages *)
   let type_cyclic_reference varname = "Cyclic reference found for " ^ varname
   let type_non_indexable_value ty = ty ^ " is a non indexable value"
