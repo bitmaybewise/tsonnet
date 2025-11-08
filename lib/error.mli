@@ -1,4 +1,7 @@
 module Msg : sig
+  (* Parameters configuration *)
+  val warn_skip_typecheck : string
+
   (* Scope-related messages *)
   val self_out_of_scope : string
   val no_toplevel_object : string

@@ -315,10 +315,12 @@ and translate_object_field_access venv pos scope chain_exprs =
     (ok (venv, obj))
     chain_exprs
 
-let check expr =
-  Scope.validate expr
-  >>= fun _ -> translate Env.empty expr
-  >>= fun _ ->
+let check (config : Config.t) expr  =
+  let* _ = Scope.validate expr in
+  if config.skip_typecheck then
+    (prerr_endline Error.Msg.warn_skip_typecheck;
+    ok expr)
+  else
+    let* _ = translate Env.empty expr in
     Env.Id.reset ();
     ok expr
-

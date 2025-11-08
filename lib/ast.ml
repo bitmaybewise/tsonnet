@@ -80,6 +80,11 @@ and object_scope =
 
 let dummy_expr = Unit
 
+let debug (config : Config.t) (ast : expr) : (expr, string) result =
+  if config.debug_ast then
+    prerr_endline (show_expr ast);
+  Result.ok ast
+
 let pos_from_lexbuf (lexbuf : Lexing.lexbuf) : position =
   { startpos = lexbuf.lex_curr_p;
     endpos = lexbuf.lex_curr_p;

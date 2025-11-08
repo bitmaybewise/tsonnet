@@ -1,6 +1,8 @@
 open Result
 open Syntax_sugar
 
+module Config = Config
+
 (** [parse s] parses [s] into an AST. *)
 let parse (filename: string) =
   let input = open_in filename in
@@ -16,10 +18,9 @@ let parse (filename: string) =
   close_in input;
   result
 
-let run ?(skip_typecheck = false) (filename: string) : (string, string) result =
-  if skip_typecheck then
-    prerr_endline "Warning: Type checking is skipped. This is not recommended as it may lead to runtime errors.\n";
+let run (config : Config.t) (filename: string) : (string, string) result =
   parse filename
-    >>= (if skip_typecheck then ok else Type.check)
+    >>= Ast.debug config
+    >>= Type.check config
     >>= Interpreter.eval
     >>= Json.expr_to_string

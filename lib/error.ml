@@ -3,6 +3,10 @@ open Result
 open Syntax_sugar
 
 module Msg = struct
+  (* Parameters configuration *)
+  let warn_skip_typecheck = "Warning: Type checking is skipped. This is not recommended as it may lead to runtime errors.\n"
+
+
   (* Shared operation messages *)
   let self_out_of_scope = "Can't use self outside of an object"
   let no_toplevel_object = "No top-level object found"
