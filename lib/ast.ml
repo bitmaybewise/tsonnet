@@ -62,7 +62,7 @@ type expr =
   | Ident of position * string
   | Array of position * expr list
   | ParsedObject of position * object_entry list
-  | RuntimeObject of position * (Env.env_id [@opaque]) * ObjectFields.t
+  | RuntimeObject of position * (expr Env.Map.t [@opaque]) * ObjectFields.t
   | ObjectPtr of (Env.env_id [@opaque]) * object_scope
   | ObjectFieldAccess of position * object_scope * expr list
   | BinOp of position * bin_op * expr * expr
@@ -76,6 +76,7 @@ and object_entry =
 and object_scope =
   | Self
   | TopLevel
+  | ObjVarRef of string
 [@@deriving show]
 
 let dummy_expr = Unit
@@ -93,6 +94,7 @@ let pos_from_lexbuf (lexbuf : Lexing.lexbuf) : position =
 let string_of_object_scope = function
   | Self -> "self"
   | TopLevel -> "$"
+  | ObjVarRef id -> id
 
 let rec string_of_type = function
   | Null _ -> "Null"
@@ -109,9 +111,8 @@ let rec string_of_type = function
   | ParsedObject (_, fields) ->
     Printf.sprintf "PlainObject{%s}"
       (String.concat ", " (List.map string_of_object_entry fields))
-  | RuntimeObject (_, (Env.EnvId id), fields) ->
-    Printf.sprintf "obj<%d>{%s}" id
-      (String.concat ", " (ObjectFields.to_list fields))
+  | RuntimeObject (_, _env, fields) ->
+    Printf.sprintf "obj{%s}" (String.concat ", " (ObjectFields.to_list fields))
   | BinOp (_, bin_op, _, _) ->
     let prefix = "Binary Operation" in
     let bin_op = match bin_op with

@@ -264,14 +264,30 @@ and translate_object venv pos entries =
   ok (venv, TruntimeObject (obj_id, entry_types))
 
 and translate_object_field_access venv pos scope chain_exprs =
-  let* obj =
-    match Env.find_opt (string_of_object_scope scope) venv with
-    | Some (TobjectPtr _ as obj) -> ok obj
-    | _ ->
-      Error.error_at pos
-        (match scope with
-        | Self -> Error.Msg.self_out_of_scope
-        | TopLevel -> Error.Msg.no_toplevel_object)
+  let* (venv, obj) =
+    match scope with
+    | Self | TopLevel ->
+      (* For self and $, look them up directly *)
+      (match Env.find_opt (string_of_object_scope scope) venv with
+      | Some (TobjectPtr _ as obj) -> ok (venv, obj)
+      | _ ->
+        Error.error_at pos
+          (match scope with
+          | Self -> Error.Msg.self_out_of_scope
+          | TopLevel -> Error.Msg.no_toplevel_object
+          | ObjVarRef _ -> "" (* unreachable *)
+          )
+      )
+    | ObjVarRef varname ->
+      (* For variable references, look up and translate the variable *)
+      Env.find_var varname venv
+        ~succ:(fun venv ty ->
+          match ty with
+          | TobjectPtr _ | TruntimeObject _ as obj -> ok (venv, obj)
+          | Lazy expr -> translate venv expr
+          | _ -> Error.error_at pos Error.Msg.must_be_object
+        )
+        ~err:(Error.error_at pos)
   in
 
   List.fold_left
@@ -291,23 +307,12 @@ and translate_object_field_access venv pos scope chain_exprs =
         Env.get_obj_field field obj_id venv
           ~succ:translate_lazy
           ~err:(Error.error_at pos)
-      | IndexedExpr (pos, field, index_expr) ->
-        let* (venv', index_expr_ty) = translate venv index_expr in
-        let* () =
-          match index_expr_ty with
-          | Tnumber | Tstring -> ok ()
-          | ty -> Error.error_at pos (Error.Msg.type_non_indexable_type (to_string ty))
-        in
-        let* obj_id = get_obj_id in
-        let* (venv', ty) =
-          Env.get_obj_field field obj_id venv'
-            ~succ:translate_lazy
-            ~err:(Error.error_at pos)
-        in
-        (match ty with
-        | (Tarray _) as array_ty -> ok (venv', array_ty)
-        | Tstring as ty -> ok (venv', ty)
-        | _ -> Error.error_at pos (Error.Msg.type_non_indexable_field field)
+      | Number (pos, _) ->
+        (* Handle numeric indexing of strings and arrays *)
+        (match prev_ty with
+        | Tstring -> ok (venv, Tstring)
+        | Tarray elem_ty -> ok (venv, elem_ty)
+        | _ -> Error.error_at pos (Error.Msg.type_non_indexable_type (to_string prev_ty))
         )
       | _ ->
         Error.error_at pos (Error.Msg.type_invalid_lookup_key (string_of_type field_expr))

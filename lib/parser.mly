@@ -103,38 +103,38 @@ obj_field_list:
   ;
 
 obj_field_expr:
-  | DOT; e = indexed_expr { e }
+  | DOT; LEFT_SQR_BRACKET; e = assignable_expr; RIGHT_SQR_BRACKET { e }
   | DOT; id = identifier { id }
+  ;
+
+obj_field_chain_item:
+  | e = obj_field_expr { e }
+  | LEFT_SQR_BRACKET; e = assignable_expr; RIGHT_SQR_BRACKET { e }
   ;
 
 obj_field_chain:
   | { [] }
-  | id = obj_field_expr; ids = obj_field_chain { id :: ids }
+  | id = obj_field_chain_item; ids = obj_field_chain { id :: ids }
+  ;
+
+obj_field_chain_nonempty:
+  | id = obj_field_chain_item { [id] }
+  | id = obj_field_chain_item; ids = obj_field_chain_nonempty { id :: ids }
   ;
 
 obj_scope:
   | SELF { Self }
   | TOP_LEVEL_OBJ { TopLevel }
+  | id = ID { ObjVarRef id }
   ;
 
 obj_field_access:
-  | scope = obj_scope; chain = obj_field_chain { ObjectFieldAccess (with_pos $startpos $endpos, scope, chain) }
-  (* The first bracketed expr when accessing an object field
-     must be explicitly declared here, instead of being part
-     of `object_field_expr`.
-
-     Adding the bracketed expr there will make the grammar unclear
-     since Menhir will need to decide between parsing one of the options:
-     1) .identifier
-     2) .identifier[expr]
-
-     By tying to the scope, such as $[expr], the grammar is now clear
-     and Menhir doesn't need to decide on its own.
-  *)
-  | scope = obj_scope;
-    LEFT_SQR_BRACKET; e = assignable_expr; RIGHT_SQR_BRACKET;
-    chain = obj_field_chain
-    { ObjectFieldAccess (with_pos $startpos $endpos, scope, e :: chain) }
+  (* For self and $, allow empty chain *)
+  | SELF; chain = obj_field_chain { ObjectFieldAccess (with_pos $startpos $endpos, Self, chain) }
+  | TOP_LEVEL_OBJ; chain = obj_field_chain { ObjectFieldAccess (with_pos $startpos $endpos, TopLevel, chain) }
+  (* For ID-based scope, only match if there's a dot (obj_field_expr) or multiple bracket accesses *)
+  | id = ID; field = obj_field_expr; chain = obj_field_chain { ObjectFieldAccess (with_pos $startpos $endpos, ObjVarRef id, field :: chain) }
+  | id = ID; LEFT_SQR_BRACKET; e = assignable_expr; RIGHT_SQR_BRACKET; rest = obj_field_chain_nonempty { ObjectFieldAccess (with_pos $startpos $endpos, ObjVarRef id, e :: rest) }
   ;
 
 %inline number:

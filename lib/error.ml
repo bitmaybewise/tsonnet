@@ -10,6 +10,7 @@ module Msg = struct
   (* Shared operation messages *)
   let self_out_of_scope = "Can't use self outside of an object"
   let no_toplevel_object = "No top-level object found"
+  let var_not_found varname = varname ^ " not found"
   let invalid_binary_op = "Invalid binary operation"
   let invalid_unary_op = "Invalid unary operation"
   let must_be_object = "Must be an object"
@@ -31,6 +32,9 @@ module Msg = struct
   let interp_invalid_concat = "Invalid string concatenation operation"
   let interp_invalid_lookup = "Invalid object lookup"
   let interp_cannot_interpret expr = Printf.sprintf "Expression %s cannot be interpreted" expr
+
+  (* Others messages *)
+  let value_not_represetable_as_json value = "value type not representable as JSON: " ^ value
 end
 
 let enumerate_error_lines filename position ~highlight_error =

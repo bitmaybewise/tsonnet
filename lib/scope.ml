@@ -103,14 +103,19 @@ and validate_object_field_access pos scope context =
     local x = self.field;
     local x = $.field;
     outside of objects *)
-  if not context.in_object
-  then
-    let with_error_msg = match scope with
-                        | Self -> Error.Msg.self_out_of_scope
-                        | TopLevel -> Error.Msg.no_toplevel_object
-    in
-    Error.trace with_error_msg pos >>= error
-  else ok ()
+  match scope with
+  | Self | TopLevel ->
+    if not context.in_object then
+      let with_error_msg = match scope with
+        | Self -> Error.Msg.self_out_of_scope
+        | TopLevel -> Error.Msg.no_toplevel_object
+        | ObjVarRef _ -> "" (* unreachable *)
+      in
+      Error.trace with_error_msg pos >>= error
+    else ok ()
+  | ObjVarRef _ ->
+    (* Variable references are allowed anywhere *)
+    ok ()
 
 and validate_locals vars context =
   (* This is crucial - it catches: local x = self.field; outside objects *)

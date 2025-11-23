@@ -23,4 +23,4 @@ let run (config : Config.t) (filename: string) : (string, string) result =
     >>= Ast.debug config
     >>= Type.check config
     >>= Interpreter.eval
-    >>= Json.expr_to_string
+    >>= Json.expr_to_string ~eval:Interpreter.interpret

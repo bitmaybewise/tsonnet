@@ -5,6 +5,7 @@ module Msg : sig
   (* Scope-related messages *)
   val self_out_of_scope : string
   val no_toplevel_object : string
+  val var_not_found : string -> string
 
   (* Shared operation messages *)
   val invalid_binary_op : string
@@ -28,6 +29,9 @@ module Msg : sig
   val interp_invalid_concat : string
   val interp_invalid_lookup : string
   val interp_cannot_interpret : string -> string
+
+  (* Other messages *)
+  val value_not_represetable_as_json : string -> string
 end
 
 val trace : string -> Ast.position -> (string, string) result
