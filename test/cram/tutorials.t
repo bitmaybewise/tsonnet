@@ -79,3 +79,15 @@
       "served": "Tall"
     }
   }
+
+  $ tsonnet ../../samples/tutorials/inner-reference.jsonnet
+  {
+    "Martini": {
+      "garnish": "Olive",
+      "ingredients": [
+        { "kind": "Farmer's Gin", "qty": 1 },
+        { "kind": "Dry White Vermouth", "qty": 1 }
+      ],
+      "served": "Straight Up"
+    }
+  }
