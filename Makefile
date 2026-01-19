@@ -23,6 +23,7 @@ coverage:
 .PHONY: prepare-dev-setup
 prepare-dev-setup:
 	mise install
+	opam init
 	opam install dune utop ocamlformat ocaml-lsp-server
 	opam install --deps-only --with-test .
 
