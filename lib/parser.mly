@@ -29,6 +29,7 @@
 %token SEMICOLON
 %token LOCAL
 %token ASSIGN
+%token EQUALITY
 %token EOF
 
 %start <Ast.expr> prog
@@ -147,6 +148,7 @@ obj_field_access:
   | MINUS { Subtract }
   | MULTIPLY { Multiply }
   | DIVIDE { Divide }
+  | EQUALITY { Equality }
   ;
 
 %inline unary_op:

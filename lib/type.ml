@@ -172,13 +172,7 @@ let rec translate venv expr =
       (ok (venv, Tunit))
       exprs
   | BinOp (pos, op, e1, e2) ->
-    (let* (venv', e1') = translate venv e1 in
-    let* (venv'', e2') = translate venv' e2 in
-    match op, e1', e2' with
-    | _, Tnumber, Tnumber -> ok (venv'', Tnumber)
-    | Add, _, Tstring | Add, Tstring, _ -> ok (venv'', Tstring)
-    | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
-    )
+    translate_bin_op venv pos op e1 e2
   | UnaryOp (pos, op, expr) ->
     (let* (venv', expr') = translate venv expr in
     match op, expr' with
@@ -319,6 +313,18 @@ and translate_object_field_access venv pos scope chain_exprs =
     )
     (ok (venv, obj))
     chain_exprs
+
+and translate_bin_op venv pos op e1 e2 =
+  let* (venv', e1') = translate venv e1 in
+  let* (venv'', e2') = translate venv' e2 in
+  match op, e1', e2' with
+  | Add, _, Tstring | Add, Tstring, _ -> ok (venv'', Tstring)
+  | Add, Tnumber, Tnumber -> ok (venv'', Tnumber)
+  | Subtract, Tnumber, Tnumber -> ok (venv'', Tnumber)
+  | Multiply, Tnumber, Tnumber -> ok (venv'', Tnumber)
+  | Divide, Tnumber, Tnumber -> ok (venv'', Tnumber)
+  | Equality, _, _ -> ok (venv'', Tbool)
+  | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
 
 let check (config : Config.t) expr  =
   let* _ = Scope.validate expr in

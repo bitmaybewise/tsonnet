@@ -5,6 +5,7 @@ type bin_op =
   | Subtract
   | Multiply
   | Divide
+  | Equality
   [@@deriving qcheck, show]
 
 type unary_op =
@@ -81,6 +82,49 @@ and object_scope =
 
 let dummy_expr = Unit
 
+(* Semantic equality for expressions.
+
+  Standard structural equality (=) includes position information, which means
+  two expressions that are semantically identical but parsed from different
+  locations would be considered unequal. This function compares expressions
+  based solely on their semantic content.
+
+  Usage: expr1 =~ expr2  or  semantic_equal expr1 expr2 *)
+let rec semantic_equal evaluated_expr1 evaluated_expr2 =
+  match (evaluated_expr1, evaluated_expr2) with
+  | Null _, Null _ -> true
+  | Number (_, n1), Number (_, n2) -> n1 = n2
+  | Bool (_, b1), Bool (_, b2) -> b1 = b2
+  | String (_, s1), String (_, s2) -> s1 = s2
+  | Ident (_, id1), Ident (_, id2) -> id1 = id2
+  | Array (_, items1), Array (_, items2) ->
+    List.length items1 = List.length items2
+    && List.for_all2 semantic_equal items1 items2
+  | ParsedObject (_, entries1), ParsedObject (_, entries2) ->
+    List.length entries1 = List.length entries2
+    && List.for_all2 object_entry_semantic_equal entries1 entries2
+  | RuntimeObject (_, _, fields1), RuntimeObject (_, _, fields2) ->
+    (* RuntimeObjects contain lazy (unevaluated) fields, so we can only compare
+       field names here. Full semantic comparison of field values requires
+       evaluation, which must be done in the interpreter. *)
+    ObjectFields.equal fields1 fields2 (* TODO: this is wrong!!! *)
+  | ObjectPtr (id1, scope1), ObjectPtr (id2, scope2) ->
+    id1 = id2 && scope1 = scope2
+  | _, _ ->
+    (* different types can't be compared, as well as operations,
+      just representable values such as number, boolean, string, object, array *)
+    false
+
+and object_entry_semantic_equal entry1 entry2 =
+  match (entry1, entry2) with
+  | ObjectField (name1, e1), ObjectField (name2, e2) ->
+    name1 = name2 && semantic_equal e1 e2
+  | ObjectExpr e1, ObjectExpr e2 ->
+    semantic_equal e1 e2
+  | _, _ -> false
+
+let ( =~ ) = semantic_equal
+
 let debug (config : Config.t) (ast : expr) : (expr, string) result =
   if config.debug_ast then
     prerr_endline (show_expr ast);
@@ -120,6 +164,7 @@ let rec string_of_type = function
     | Subtract -> "-"
     | Multiply -> "*"
     | Divide -> "/"
+    | Equality -> "=="
     in prefix ^ " " ^ bin_op
   | UnaryOp (_, unary_op, _) ->
     let prefix = "Unary Operation" in
