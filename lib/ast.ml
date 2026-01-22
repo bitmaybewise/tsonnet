@@ -104,25 +104,7 @@ let rec semantic_equal evaluated_expr1 evaluated_expr2 =
     List.length entries1 = List.length entries2
     && List.for_all2 object_entry_semantic_equal entries1 entries2
   | RuntimeObject (_, env1, fields1), RuntimeObject (_, env2, fields2) ->
-    (* RuntimeObjects contain lazy (unevaluated) fields, so we can only compare
-       field names here. Full semantic comparison of field values requires
-       evaluation, which must be done in the interpreter. *)
-    let get_obj_id env =
-      match Env.Map.find_opt "self" env with
-      | Some (ObjectPtr (obj_id, _)) -> Some obj_id
-      | _ -> None
-    in
-    (match (get_obj_id env1, get_obj_id env2) with
-    | Some obj_id1, Some obj_id2 ->
-      ObjectFields.equal fields1 fields2
-      && ObjectFields.for_all (fun field ->
-        let key1 = Env.uniq_field_ident obj_id1 field in
-        let key2 = Env.uniq_field_ident obj_id2 field in
-        match (Env.Map.find_opt key1 env1, Env.Map.find_opt key2 env2) with
-        | Some v1, Some v2 -> semantic_equal v1 v2
-        | _, _ -> false
-      ) fields1
-    | _, _ -> false)
+    runtime_object_semantic_equal (env1, fields1) (env2, fields2)
   | ObjectPtr (id1, scope1), ObjectPtr (id2, scope2) ->
     id1 = id2 && scope1 = scope2
   | _, _ ->
@@ -137,6 +119,28 @@ and object_entry_semantic_equal entry1 entry2 =
   | ObjectExpr e1, ObjectExpr e2 ->
     semantic_equal e1 e2
   | _, _ -> false
+
+and runtime_object_semantic_equal (env1, fields1) (env2, fields2) =
+  (* RuntimeObjects contain lazy (unevaluated) fields.
+    Full semantic comparison of field values requires
+    evaluation, which must be done in the interpreter. *)
+  let get_obj_id env =
+    match Env.Map.find_opt "self" env with
+    | Some (ObjectPtr (obj_id, _)) -> Some obj_id
+    | _ -> None
+  in
+  (match (get_obj_id env1, get_obj_id env2) with
+  | Some obj_id1, Some obj_id2 ->
+    ObjectFields.equal fields1 fields2
+    && ObjectFields.for_all (fun field ->
+      let key1 = Env.uniq_field_ident obj_id1 field in
+      let key2 = Env.uniq_field_ident obj_id2 field in
+      match (Env.Map.find_opt key1 env1, Env.Map.find_opt key2 env2) with
+      | Some v1, Some v2 -> semantic_equal v1 v2
+      | _, _ -> false
+    ) fields1
+  | _, _ -> false
+  )
 
 let ( =~ ) = semantic_equal
 

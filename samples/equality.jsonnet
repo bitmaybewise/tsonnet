@@ -15,3 +15,4 @@
     eq_complex_obj_complex_obj: [{}, { x: 3 - 1 }] == [{}, { x: 2 }],
     dif_complex_obj_complex_obj: [{ a: 1 }, { b: 2 }] == [{ b: 2 }, { a: 1 }],
 }
+
