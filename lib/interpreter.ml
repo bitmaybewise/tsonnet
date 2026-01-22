@@ -238,7 +238,44 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
   | Divide, Number (_, Float a), Number (_, Float b) ->
     ok (env, Number (pos, Float (a /. b)))
   | Equality, v1, v2 ->
-    ok (env, Bool (pos, v1 =~ v2))
+    let rec values_equal val1 val2 =
+      match (val1, val2) with
+      | RuntimeObject (_, env1, fields1), RuntimeObject (_, env2, fields2) ->
+        if not (ObjectFields.equal fields1 fields2) then ok false
+        else
+          let get_obj_id obj_env =
+            match Env.Map.find_opt "self" obj_env with
+            | Some (ObjectPtr (obj_id, _)) -> Some obj_id
+            | _ -> None
+          in
+          (match (get_obj_id env1, get_obj_id env2) with
+          | Some obj_id1, Some obj_id2 ->
+            ObjectFields.fold (fun field acc ->
+              let* all_equal = acc in
+              if not all_equal then ok false
+              else
+                let key1 = Env.uniq_field_ident obj_id1 field in
+                let key2 = Env.uniq_field_ident obj_id2 field in
+                match (Env.Map.find_opt key1 env1, Env.Map.find_opt key2 env2) with
+                | Some expr1, Some expr2 ->
+                  let* (_, v1) = interpret env1 expr1 in
+                  let* (_, v2) = interpret env2 expr2 in
+                  values_equal v1 v2
+                | _, _ -> ok false
+            ) fields1 (ok true)
+          | _, _ -> ok false)
+      | Array (_, items1), Array (_, items2) ->
+        if List.length items1 <> List.length items2 then ok false
+        else
+          List.fold_left2 (fun acc item1 item2 ->
+            let* all_equal = acc in
+            if not all_equal then ok false
+            else values_equal item1 item2
+          ) (ok true) items1 items2
+      | _, _ -> ok (val1 =~ val2)
+    in
+    let* are_equal = values_equal v1 v2 in
+    ok (env, Bool (pos, are_equal))
   | _ ->
     Error.trace Error.Msg.invalid_binary_op pos >>= error
 
