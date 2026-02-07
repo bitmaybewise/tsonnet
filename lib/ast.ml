@@ -55,11 +55,16 @@ module ObjectFields = struct
 end
 
 type expr =
+  (* terminal variants can appear in any stage, representable in the final JSON *)
   | Unit
   | Null of position
   | Number of position * number
   | Bool of position * bool
   | String of position * string
+  | EvaluatedObject of position * (string * expr) list
+
+  (* interpreted variants were parsed, interpreted and transformed,
+    but are not terminal, and are waiting to be transformed into terminal variants *)
   | Ident of position * string
   | Array of position * expr list
   | ParsedObject of position * object_entry list
@@ -71,6 +76,7 @@ type expr =
   | Local of position * (string * expr) list
   | Seq of expr list
   | IndexedExpr of position * string * expr
+
 and object_entry =
   | ObjectField of string * expr
   | ObjectExpr of expr
@@ -100,47 +106,18 @@ let rec semantic_equal evaluated_expr1 evaluated_expr2 =
   | Array (_, items1), Array (_, items2) ->
     List.length items1 = List.length items2
     && List.for_all2 semantic_equal items1 items2
-  | ParsedObject (_, entries1), ParsedObject (_, entries2) ->
-    List.length entries1 = List.length entries2
-    && List.for_all2 object_entry_semantic_equal entries1 entries2
-  | RuntimeObject (_, env1, fields1), RuntimeObject (_, env2, fields2) ->
-    runtime_object_semantic_equal (env1, fields1) (env2, fields2)
+  | EvaluatedObject (_, fields1), EvaluatedObject (_, fields2) ->
+    List.length fields1 = List.length fields2
+    && List.for_all2
+      (fun (k1, v1) (k2, v2) -> k1 = k2 && semantic_equal v1 v2)
+      fields1
+      fields2
   | ObjectPtr (id1, scope1), ObjectPtr (id2, scope2) ->
     id1 = id2 && scope1 = scope2
   | _, _ ->
     (* different types can't be compared, as well as operations,
       just representable values such as number, boolean, string, object, array *)
     false
-
-and object_entry_semantic_equal entry1 entry2 =
-  match (entry1, entry2) with
-  | ObjectField (name1, e1), ObjectField (name2, e2) ->
-    name1 = name2 && semantic_equal e1 e2
-  | ObjectExpr e1, ObjectExpr e2 ->
-    semantic_equal e1 e2
-  | _, _ -> false
-
-and runtime_object_semantic_equal (env1, fields1) (env2, fields2) =
-  (* RuntimeObjects contain lazy (unevaluated) fields.
-    Full semantic comparison of field values requires
-    evaluation, which must be done in the interpreter. *)
-  let get_obj_id env =
-    match Env.Map.find_opt "self" env with
-    | Some (ObjectPtr (obj_id, _)) -> Some obj_id
-    | _ -> None
-  in
-  (match (get_obj_id env1, get_obj_id env2) with
-  | Some obj_id1, Some obj_id2 ->
-    ObjectFields.equal fields1 fields2
-    && ObjectFields.for_all (fun field ->
-      let key1 = Env.uniq_field_ident obj_id1 field in
-      let key2 = Env.uniq_field_ident obj_id2 field in
-      match (Env.Map.find_opt key1 env1, Env.Map.find_opt key2 env2) with
-      | Some v1, Some v2 -> semantic_equal v1 v2
-      | _, _ -> false
-    ) fields1
-  | _, _ -> false
-  )
 
 let ( =~ ) = semantic_equal
 
@@ -204,6 +181,9 @@ let rec string_of_type = function
     Printf.sprintf "%s.%s"
       (string_of_object_scope scope)
       (String.concat "." (List.map string_of_type field_chain))
+  | expr ->
+    (* using show_expr as a fallback *)
+    show_expr expr
 
 and string_of_object_entry = function
   | ObjectField (field, expr) -> field ^ ": " ^ string_of_type expr

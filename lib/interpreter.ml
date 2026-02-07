@@ -14,10 +14,10 @@ let interpret_unary_op (op: unary_op) (evaluated_expr: expr) =
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
   match expr with
-  | Null _ | Bool _ | String _ | Number _ -> ok (env, expr)
+  | Null _ | Bool _ | String _ | Number _ | EvaluatedObject _ -> ok (env, expr)
   | Array (pos, exprs) -> interpret_array env (pos, exprs)
   | ParsedObject (pos, entries) -> interpret_object env (pos, entries)
-  | RuntimeObject _ as runtime_obj -> ok (env, runtime_obj)
+  | RuntimeObject (pos, obj_env, fields) -> interpret_runtime_object env (pos, obj_env, fields)
   | ObjectPtr _ as obj_ptr -> ok (env, obj_ptr)
   | ObjectFieldAccess (pos, scope, chain) -> interpret_object_field_access env (pos, scope, chain)
   | Ident (pos, varname) ->
@@ -96,25 +96,6 @@ and interpret_seq env exprs =
   | (expr :: exprs') ->
     interpret env expr >>= fun (env', _) ->
     interpret env' (Seq exprs')
-
-and fully_evaluate_obj_fields obj_env fields =
-  let get_obj_id env =
-    match Env.Map.find_opt "self" env with
-    | Some (ObjectPtr (obj_id, _)) -> Some obj_id
-    | _ -> None
-  in
-  match get_obj_id obj_env with
-  | None -> ok Env.Map.empty
-  | Some obj_id ->
-    ObjectFields.fold (fun field acc ->
-      let* evaluated_fields = acc in
-      let key = Env.uniq_field_ident obj_id field in
-      match Env.Map.find_opt key obj_env with
-      | Some expr ->
-        let* (_, evaluated) = interpret obj_env expr in
-        ok (Env.Map.add field evaluated evaluated_fields)
-      | None -> acc
-    ) fields (ok Env.Map.empty)
 
 and interpret_object env (pos, entries) =
   let* obj_id = Env.Id.generate () in
@@ -213,6 +194,29 @@ and interpret_object_field_access env (pos, scope, chain_exprs) =
     (ok (env', obj))
     chain_exprs
 
+and interpret_runtime_object env (pos, obj_env, fields) =
+  let* evaluated_fields = interpret_runtime_object_fields obj_env fields in
+  ok (env, EvaluatedObject (pos, evaluated_fields))
+
+and interpret_runtime_object_fields obj_env fields =
+  match Env.Map.find_opt "self" obj_env with
+  | Some (ObjectPtr (obj_id, _)) ->
+    let* field_list =
+      ObjectFields.fold
+        (fun field acc ->
+          let* evaluated_fields = acc in
+          let key = Env.uniq_field_ident obj_id field in
+          match Env.Map.find_opt key obj_env with
+          | Some expr ->
+            let* (_, evaluated) = interpret obj_env expr in
+            ok ((field, evaluated) :: evaluated_fields)
+          | None -> acc
+        )
+        fields
+        (ok [])
+    in ok (List.rev field_list)
+  | _ -> ok []
+
 and interpret_bin_op env (pos, op, e1, e2) =
   let* (env1, e1') = interpret env e1 in
   let* (env2, e2') = interpret env1 e2 in
@@ -256,36 +260,18 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
     ok (env, Number (pos, Float ((float_of_int a) /. b)))
   | Divide, Number (_, Float a), Number (_, Float b) ->
     ok (env, Number (pos, Float (a /. b)))
-  | Equality, RuntimeObject (_, env1, fields1), RuntimeObject (_, env2, fields2) ->
-    if not (ObjectFields.equal fields1 fields2) then
-      ok (env, Bool (pos, false))
-    else
-      let* evaluated1 = fully_evaluate_obj_fields env1 fields1 in
-      let* evaluated2 = fully_evaluate_obj_fields env2 fields2 in
-      let* are_equal = ObjectFields.fold (fun field acc ->
-        let* all_equal = acc in
-        if not all_equal then ok false
-        else
-          match (Env.Map.find_opt field evaluated1, Env.Map.find_opt field evaluated2) with
-          | Some v1, Some v2 -> ok (v1 =~ v2)
-          | _, _ -> ok false
-      ) fields1 (ok true) in
-      ok (env, Bool (pos, are_equal))
   | Equality, Array (_, items1), Array (_, items2) ->
+    (* Early exit: skip evaluation if lengths differ for efficiency *)
     if List.length items1 <> List.length items2 then
       ok (env, Bool (pos, false))
     else
-      let* are_equal = List.fold_left2 (fun acc item1 item2 ->
-        let* all_equal = acc in
-        if not all_equal then ok false
-        else
-          match interpret_bin_op env (pos, Equality, item1, item2) with
-          | Ok (_, Bool (_, eq)) -> ok eq
-          | _ -> ok false
-      ) (ok true) items1 items2 in
-      ok (env, Bool (pos, are_equal))
+      let* (_, evaluated1) = interpret_array env (pos, items1) in
+      let* (_, evaluated2) = interpret_array env (pos, items2) in
+      ok (env, Bool (pos, evaluated1 =~ evaluated2))
   | Equality, v1, v2 ->
-    ok (env, Bool (pos, v1 =~ v2))
+    let* (_, eval_expr1) = interpret env v1 in
+    let* (_, eval_expr2) = interpret env v2 in
+    ok (env, Bool (pos, eval_expr1 =~ eval_expr2))
   | _ ->
     Error.trace Error.Msg.invalid_binary_op pos >>= error
 
