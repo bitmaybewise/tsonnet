@@ -49,10 +49,12 @@ and interpret_concat_op env e1 e2 =
     | String (_, s1), String (_, s2) ->
       ok (env, String (dummy_pos, s1^s2))
     | String (_, s1), val2 ->
-      let* s2 = Json.expr_to_string ~eval:interpret (env, val2) in
+      let* (_, val2) = interpret env val2 in
+      let* s2 = Json.expr_to_string val2 in
       ok (env, String (dummy_pos, s1^s2))
     | val1, String (_, s2) ->
-      let* s1 = Json.expr_to_string ~eval:interpret (env, val1) in
+      let* (_, val1) = interpret env val1 in
+      let* s1 = Json.expr_to_string val1 in
       ok (env, String (dummy_pos, s1^s2))
     | _ ->
       error Error.Msg.interp_invalid_concat
@@ -275,4 +277,39 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
   | _ ->
     Error.trace Error.Msg.invalid_binary_op pos >>= error
 
-let eval expr = interpret Env.empty expr
+let rec deep_eval expr =
+  match expr with
+  | Null _ | Bool _ | String _ | Number _ -> ok expr
+  | Array (pos, items) ->
+    let* evaluated_items = List.fold_left
+      (fun acc item ->
+        let* list = acc in
+        let* evaluated = deep_eval item in
+        ok (evaluated :: list)
+      )
+      (ok [])
+      items
+    in
+    ok (Array (pos, List.rev evaluated_items))
+  | EvaluatedObject (pos, fields) ->
+    let* evaluated_fields = List.fold_left
+      (fun acc (name, expr) ->
+        let* list = acc in
+        let* evaluated = deep_eval expr in
+        ok ((name, evaluated) :: list)
+      )
+      (ok [])
+      fields
+    in
+    ok (EvaluatedObject (pos, List.rev evaluated_fields))
+  | RuntimeObject _ ->
+    let* (_, evaluated) = interpret Env.empty expr in
+    deep_eval evaluated
+  | expr ->
+    let* (_, evaluated) = interpret Env.empty expr in
+    deep_eval evaluated
+
+let eval expr =
+  let* (_, expr) = interpret Env.empty expr in
+  let* expr = deep_eval expr in
+  ok expr
