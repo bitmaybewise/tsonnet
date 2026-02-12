@@ -30,6 +30,7 @@
 %token LOCAL
 %token ASSIGN
 %token EQUALITY
+%left EQUALITY
 %token EOF
 
 %start <Ast.expr> prog
@@ -121,12 +122,6 @@ obj_field_chain:
 obj_field_chain_nonempty:
   | id = obj_field_chain_item { [id] }
   | id = obj_field_chain_item; ids = obj_field_chain_nonempty { id :: ids }
-  ;
-
-obj_scope:
-  | SELF { Self }
-  | TOP_LEVEL_OBJ { TopLevel }
-  | id = ID { ObjVarRef id }
   ;
 
 obj_field_access:
