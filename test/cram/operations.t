@@ -16,6 +16,9 @@
   $ tsonnet ../../samples/bitwise.jsonnet
   -2
 
+  $ tsonnet ../../samples/modulo.jsonnet
+  1
+
   $ tsonnet ../../samples/equality.jsonnet
   {
     "dif_array_array": false,

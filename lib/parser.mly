@@ -20,9 +20,9 @@
 %token COLON
 %token DOT
 %token SELF TOP_LEVEL_OBJ
-%token PLUS MINUS MULTIPLY DIVIDE
+%token PLUS MINUS MULTIPLY DIVIDE MODULO
 %left PLUS MINUS
-%left MULTIPLY DIVIDE
+%left MULTIPLY DIVIDE MODULO
 %token <string> ID
 %token NOT BITWISE_NOT
 %left NOT BITWISE_NOT
@@ -143,6 +143,7 @@ obj_field_access:
   | MINUS { Subtract }
   | MULTIPLY { Multiply }
   | DIVIDE { Divide }
+  | MODULO { Modulo }
   | EQUALITY { Equality }
   ;
 

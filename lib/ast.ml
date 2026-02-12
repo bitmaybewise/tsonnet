@@ -5,6 +5,7 @@ type bin_op =
   | Subtract
   | Multiply
   | Divide
+  | Modulo
   | Equality
   [@@deriving qcheck, show]
 
@@ -160,6 +161,7 @@ let rec string_of_type = function
     | Subtract -> "-"
     | Multiply -> "*"
     | Divide -> "/"
+    | Modulo -> "%"
     | Equality -> "=="
     in prefix ^ " " ^ bin_op
   | UnaryOp (_, unary_op, _) ->

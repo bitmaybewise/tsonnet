@@ -58,6 +58,7 @@ rule read =
   | '-' { MINUS }
   | '*' { MULTIPLY }
   | '/' { DIVIDE }
+  | '%' { MODULO }
   | '!' { NOT }
   | '~' { BITWISE_NOT }
   | '=' { ASSIGN }
