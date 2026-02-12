@@ -44,7 +44,7 @@ let rec interpret env expr =
       )
       ~err:(Error.error_at pos)
 
-and interpret_concat_op env e1 e2 =
+and interpret_string_concat_op env e1 e2 =
     match e1, e2 with
     | String (_, s1), String (_, s2) ->
       ok (env, String (dummy_pos, s1^s2))
@@ -56,6 +56,13 @@ and interpret_concat_op env e1 e2 =
       let* (_, val1) = interpret env val1 in
       let* s1 = Json.expr_to_string val1 in
       ok (env, String (dummy_pos, s1^s2))
+    | _ ->
+      error Error.Msg.interp_invalid_concat
+
+and interpret_array_concat_op env e1 e2 =
+    match e1, e2 with
+    | Array (pos, exprs1), Array (_, exprs2) ->
+      ok (env, Array (pos, List.append exprs1 exprs2))
     | _ ->
       error Error.Msg.interp_invalid_concat
 
@@ -224,7 +231,9 @@ and interpret_bin_op env (pos, op, e1, e2) =
   let* (env2, e2') = interpret env1 e2 in
   match op, e1', e2' with
   | Add, (String _ as v1), (_ as v2) | Add, (_ as v1), (String _ as v2) ->
-    interpret_concat_op env2 v1 v2
+    interpret_string_concat_op env2 v1 v2
+  | Add, (Array _ as v1), (Array _ as v2)  ->
+    interpret_array_concat_op env2 v1 v2
   | _, v1, v2 ->
     interpret_arith_op env2 (pos, op, v1, v2)
 
