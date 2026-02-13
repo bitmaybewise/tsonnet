@@ -1,25 +1,25 @@
-  $ tsonnet ../../samples/binary_operations.jsonnet
+  $ tsonnet ../../samples/operations/binary.jsonnet
   42.3
 
-  $ tsonnet ../../samples/unary_operations.jsonnet
+  $ tsonnet ../../samples/operations/unary.jsonnet
   -666
 
-  $ tsonnet ../../samples/operation_precedence.jsonnet
+  $ tsonnet ../../samples/operations/precedence.jsonnet
   2.119565217391304
 
-  $ tsonnet ../../samples/not_true.jsonnet
+  $ tsonnet ../../samples/operations/not_true.jsonnet
   false
 
-  $ tsonnet ../../samples/not_false.jsonnet
+  $ tsonnet ../../samples/operations/not_false.jsonnet
   true
 
-  $ tsonnet ../../samples/bitwise.jsonnet
+  $ tsonnet ../../samples/operations/bitwise_not.jsonnet
   -2
 
-  $ tsonnet ../../samples/modulo.jsonnet
+  $ tsonnet ../../samples/operations/modulo.jsonnet
   1
 
-  $ tsonnet ../../samples/equality.jsonnet
+  $ tsonnet ../../samples/operations/equality.jsonnet
   {
     "dif_array_array": false,
     "dif_complex_obj_complex_obj": false,

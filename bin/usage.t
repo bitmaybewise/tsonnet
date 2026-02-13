@@ -16,5 +16,5 @@ Using the Tsonnet program:
     "string_attr": "Hello, world!"
   }
 
-  $ tsonnet ../samples/binary_operations.jsonnet
+  $ tsonnet ../samples/operations/binary.jsonnet
   42.3
