@@ -33,3 +33,6 @@
     "eq_obj_obj": true,
     "eq_str_str": true
   }
+
+  $ tsonnet ../../samples/operations/bitwise.jsonnet
+  { "or": 3 }

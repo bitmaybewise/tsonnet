@@ -24,8 +24,8 @@
 %left PLUS MINUS
 %left MULTIPLY DIVIDE MODULO
 %token <string> ID
-%token NOT BITWISE_NOT
-%left NOT BITWISE_NOT
+%token NOT BITWISE_NOT BITWISE_OR
+%left  NOT BITWISE_NOT BITWISE_OR
 %token SEMICOLON
 %token LOCAL
 %token ASSIGN
@@ -139,13 +139,14 @@ obj_field_access:
   ;
 
 %inline bin_op:
-  | PLUS { Add }
-  | MINUS { Subtract }
-  | MULTIPLY { Multiply }
-  | DIVIDE { Divide }
-  | MODULO { Modulo }
-  | EQUALITY { Equality }
-  ;
+   | PLUS { Add }
+   | MINUS { Subtract }
+   | MULTIPLY { Multiply }
+   | DIVIDE { Divide }
+   | MODULO { Modulo }
+   | EQUALITY { Equality }
+   | BITWISE_OR { BitwiseOr }
+   ;
 
 %inline unary_op:
   | PLUS { Plus }

@@ -61,6 +61,7 @@ rule read =
   | '%' { MODULO }
   | '!' { NOT }
   | '~' { BITWISE_NOT }
+  | '|' { BITWISE_OR }
   | '=' { ASSIGN }
   | ';' { SEMICOLON }
   | '.' { DOT }

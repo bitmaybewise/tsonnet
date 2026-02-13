@@ -325,6 +325,7 @@ and translate_bin_op venv pos op e1 e2 =
   | Multiply, Tnumber, Tnumber -> ok (venv'', Tnumber)
   | Divide, Tnumber, Tnumber -> ok (venv'', Tnumber)
   | Modulo, Tnumber, Tnumber -> ok (venv'', Tnumber)
+  | BitwiseOr, Tnumber, Tnumber -> ok (venv'', Tnumber)
   | Equality, _, _ -> ok (venv'', Tbool)
   | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
 

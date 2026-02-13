@@ -279,6 +279,14 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
     ok (env, Number (pos, Float (Float.rem (float_of_int a) b)))
   | Modulo, Number (_, Float a), Number (_, Float b) ->
     ok (env, Number (pos, Float (Float.rem a b)))
+  | BitwiseOr, Number (_, Int a), Number (_, Int b) ->
+    ok (env, Number (pos, Int (a lor b)))
+  | BitwiseOr, Number (_, Float a), Number (_, Int b) ->
+    ok (env, Number (pos, Int (int_of_float a lor b)))
+  | BitwiseOr, Number (_, Int a), Number (_, Float b) ->
+    ok (env, Number (pos, Int (a lor int_of_float b)))
+  | BitwiseOr, Number (_, Float a), Number (_, Float b) ->
+    ok (env, Number (pos, Int (int_of_float a lor int_of_float b)))
   | Equality, Array (_, items1), Array (_, items2) ->
     (* Early exit: skip evaluation if lengths differ for efficiency *)
     if List.length items1 <> List.length items2 then
