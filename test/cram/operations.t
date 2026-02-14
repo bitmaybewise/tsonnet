@@ -36,3 +36,6 @@
 
   $ tsonnet ../../samples/operations/bitwise.jsonnet
   { "and": 1, "or": 3, "xor": 2 }
+
+  $ tsonnet ../../samples/operations/logical.jsonnet
+  { "and_false": false, "and_true": true }

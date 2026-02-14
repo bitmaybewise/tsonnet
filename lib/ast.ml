@@ -10,6 +10,7 @@ type bin_op =
   | BitwiseOr
   | BitwiseAnd
   | BitwiseXor
+  | LogicalAnd
   [@@deriving qcheck, show]
 
 type unary_op =
@@ -169,6 +170,7 @@ let rec string_of_type = function
     | BitwiseOr -> "|"
     | BitwiseAnd -> "&"
     | BitwiseXor -> "^"
+    | LogicalAnd -> "&&"
     in prefix ^ " " ^ bin_op
   | UnaryOp (_, unary_op, _) ->
     let prefix = "Unary Operation" in
