@@ -295,6 +295,14 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
     ok (env, Number (pos, Int (a land int_of_float b)))
   | BitwiseAnd, Number (_, Float a), Number (_, Float b) ->
     ok (env, Number (pos, Int (int_of_float a land int_of_float b)))
+  | BitwiseXor, Number (_, Int a), Number (_, Int b) ->
+    ok (env, Number (pos, Int (a lxor b)))
+  | BitwiseXor, Number (_, Float a), Number (_, Int b) ->
+    ok (env, Number (pos, Int (int_of_float a lxor b)))
+  | BitwiseXor, Number (_, Int a), Number (_, Float b) ->
+    ok (env, Number (pos, Int (a lxor int_of_float b)))
+  | BitwiseXor, Number (_, Float a), Number (_, Float b) ->
+    ok (env, Number (pos, Int (int_of_float a lxor int_of_float b)))
   | Equality, Array (_, items1), Array (_, items2) ->
     (* Early exit: skip evaluation if lengths differ for efficiency *)
     if List.length items1 <> List.length items2 then
