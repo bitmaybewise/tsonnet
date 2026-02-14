@@ -38,4 +38,4 @@
   { "and": 1, "or": 3, "xor": 2 }
 
   $ tsonnet ../../samples/operations/logical.jsonnet
-  { "and_false": false, "and_true": true }
+  { "and_false": false, "and_true": true, "or_false": false, "or_true": true }

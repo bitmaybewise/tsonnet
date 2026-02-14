@@ -305,6 +305,8 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
     ok (env, Number (pos, Int (int_of_float a lxor int_of_float b)))
   | LogicalAnd, Bool (_, a), Bool (_, b) ->
     ok (env, Bool (pos, a && b))
+  | LogicalOr, Bool (_, a), Bool (_, b) ->
+    ok (env, Bool (pos, a || b))
   | Equality, Array (_, items1), Array (_, items2) ->
     (* Early exit: skip evaluation if lengths differ for efficiency *)
     if List.length items1 <> List.length items2 then

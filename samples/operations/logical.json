@@ -1,4 +1,6 @@
 {
    "and_false": false,
-   "and_true": true
+   "and_true": true,
+   "or_false": false,
+   "or_true": true
 }
