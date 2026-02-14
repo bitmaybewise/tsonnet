@@ -1,0 +1,13 @@
+{
+   "dif_array_array": true,
+   "dif_complex_obj_complex_obj": true,
+   "dif_number_number": true,
+   "dif_number_str": true,
+   "dif_obj_obj": true,
+   "dif_str_str": true,
+   "eq_array_array": false,
+   "eq_complex_obj_complex_obj": false,
+   "eq_number_number": false,
+   "eq_obj_obj": false,
+   "eq_str_str": false
+}

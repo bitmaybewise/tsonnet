@@ -29,8 +29,8 @@
 %token SEMICOLON
 %token LOCAL
 %token ASSIGN
-%token EQUALITY
-%left EQUALITY
+%token EQUALITY INEQUALITY
+%left EQUALITY INEQUALITY
 %token EOF
 
 %start <Ast.expr> prog
@@ -145,6 +145,7 @@ obj_field_access:
    | DIVIDE { Divide }
    | MODULO { Modulo }
    | EQUALITY { Equality }
+   | INEQUALITY { Inequality }
    | BITWISE_OR { BitwiseOr }
    | BITWISE_AND { BitwiseAnd }
    | BITWISE_XOR { BitwiseXor }

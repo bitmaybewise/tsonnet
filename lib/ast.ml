@@ -7,6 +7,7 @@ type bin_op =
   | Divide
   | Modulo
   | Equality
+  | Inequality
   | BitwiseOr
   | BitwiseAnd
   | BitwiseXor
@@ -168,6 +169,7 @@ let rec string_of_type = function
     | Divide -> "/"
     | Modulo -> "%"
     | Equality -> "=="
+    | Inequality -> "!="
     | BitwiseOr -> "|"
     | BitwiseAnd -> "&"
     | BitwiseXor -> "^"

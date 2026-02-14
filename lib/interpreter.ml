@@ -319,6 +319,13 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
     let* (_, eval_expr1) = interpret env v1 in
     let* (_, eval_expr2) = interpret env v2 in
     ok (env, Bool (pos, eval_expr1 =~ eval_expr2))
+  | Inequality, v1, v2 ->
+    (* Inequality is, simply put, negation of equality *)
+    let* (_, expr) = interpret_arith_op env (pos, Equality, v1, v2) in
+    (match expr with
+    | Bool (_, value) -> ok (env, Bool (pos, not value))
+    | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
+    )
   | _ ->
     Error.trace Error.Msg.invalid_binary_op pos >>= error
 
