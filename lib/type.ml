@@ -332,6 +332,7 @@ and translate_bin_op venv pos op e1 e2 =
   | LogicalOr, Tbool, Tbool -> ok (venv'', Tbool)
   | Equality, _, _ -> ok (venv'', Tbool)
   | Inequality, _, _ -> ok (venv'', Tbool)
+  | In, Tstring, (Tobject _ | Tany | TruntimeObject _ | TobjectPtr _) -> ok (venv'', Tbool)
   | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
 
 let check (config : Config.t) expr  =

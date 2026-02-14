@@ -227,15 +227,17 @@ and interpret_runtime_object_fields obj_env fields =
   | _ -> ok []
 
 and interpret_bin_op env (pos, op, e1, e2) =
-  let* (env1, e1') = interpret env e1 in
-  let* (env2, e2') = interpret env1 e2 in
-  match op, e1', e2' with
-  | Add, (String _ as v1), (_ as v2) | Add, (_ as v1), (String _ as v2) ->
-    interpret_string_concat_op env2 v1 v2
-  | Add, (Array _ as v1), (Array _ as v2)  ->
-    interpret_array_concat_op env2 v1 v2
-  | _, v1, v2 ->
-    interpret_arith_op env2 (pos, op, v1, v2)
+   let* (env1, e1') = interpret env e1 in
+   let* (env2, e2') = interpret env1 e2 in
+   match op, e1', e2' with
+   | Add, (String _ as v1), (_ as v2) | Add, (_ as v1), (String _ as v2) ->
+     interpret_string_concat_op env2 v1 v2
+   | Add, (Array _ as v1), (Array _ as v2)  ->
+     interpret_array_concat_op env2 v1 v2
+   | In, (String _ | Ident _ as field), (EvaluatedObject _ | RuntimeObject (_, _, _) as obj) ->
+     interpret_in_op env2 pos field obj
+   | _, v1, v2 ->
+     interpret_arith_op env2 (pos, op, v1, v2)
 
 and interpret_arith_op env (pos, bin_op, n1, n2) =
   match bin_op, n1, n2 with
@@ -326,6 +328,19 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
     | Bool (_, value) -> ok (env, Bool (pos, not value))
     | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
     )
+  | _ ->
+    Error.trace Error.Msg.invalid_binary_op pos >>= error
+
+and interpret_in_op env pos field obj =
+  match field, obj with
+  | String (_, field_str), EvaluatedObject (_, fields)
+  | Ident (_, field_str), EvaluatedObject (_, fields) ->
+    let field_exists = List.exists (fun (name, _) -> name = field_str) fields in
+    ok (env, Bool (pos, field_exists))
+  | String (_, field_str), RuntimeObject (_, _, fields)
+  | Ident (_, field_str), RuntimeObject (_, _, fields) ->
+    let field_exists = ObjectFields.exists (fun name -> name = field_str) fields in
+    ok (env, Bool (pos, field_exists))
   | _ ->
     Error.trace Error.Msg.invalid_binary_op pos >>= error
 

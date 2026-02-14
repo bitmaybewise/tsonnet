@@ -73,6 +73,7 @@ rule read =
   | "local" { LOCAL }
   | "self" { SELF }
   | "$" { TOP_LEVEL_OBJ }
+  | "in" { IN }
   | id { ID (Lexing.lexeme lexbuf) }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }

@@ -39,3 +39,11 @@
 
   $ tsonnet ../../samples/operations/logical.jsonnet
   { "and_false": false, "and_true": true, "or_false": false, "or_true": true }
+
+  $ tsonnet ../../samples/operations/in.jsonnet
+  {
+    "has_field": true,
+    "has_field_bar": true,
+    "has_no_field": false,
+    "has_no_field_bar": false
+  }

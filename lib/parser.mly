@@ -29,8 +29,8 @@
 %token SEMICOLON
 %token LOCAL
 %token ASSIGN
-%token EQUALITY INEQUALITY
-%left EQUALITY INEQUALITY
+%token EQUALITY INEQUALITY IN
+%left EQUALITY INEQUALITY IN
 %token EOF
 
 %start <Ast.expr> prog
@@ -139,19 +139,20 @@ obj_field_access:
   ;
 
 %inline bin_op:
-   | PLUS { Add }
-   | MINUS { Subtract }
-   | MULTIPLY { Multiply }
-   | DIVIDE { Divide }
-   | MODULO { Modulo }
-   | EQUALITY { Equality }
-   | INEQUALITY { Inequality }
-   | BITWISE_OR { BitwiseOr }
-   | BITWISE_AND { BitwiseAnd }
-   | BITWISE_XOR { BitwiseXor }
-   | LOGICAL_AND { LogicalAnd }
-   | LOGICAL_OR { LogicalOr }
-   ;
+    | PLUS { Add }
+    | MINUS { Subtract }
+    | MULTIPLY { Multiply }
+    | DIVIDE { Divide }
+    | MODULO { Modulo }
+    | EQUALITY { Equality }
+    | INEQUALITY { Inequality }
+    | BITWISE_OR { BitwiseOr }
+    | BITWISE_AND { BitwiseAnd }
+    | BITWISE_XOR { BitwiseXor }
+    | LOGICAL_AND { LogicalAnd }
+    | LOGICAL_OR { LogicalOr }
+    | IN { In }
+    ;
 
 %inline unary_op:
   | PLUS { Plus }
