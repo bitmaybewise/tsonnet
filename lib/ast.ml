@@ -8,6 +8,7 @@ type bin_op =
   | Modulo
   | Equality
   | BitwiseOr
+  | BitwiseAnd
   [@@deriving qcheck, show]
 
 type unary_op =
@@ -165,6 +166,7 @@ let rec string_of_type = function
     | Modulo -> "%"
     | Equality -> "=="
     | BitwiseOr -> "|"
+    | BitwiseAnd -> "&"
     in prefix ^ " " ^ bin_op
   | UnaryOp (_, unary_op, _) ->
     let prefix = "Unary Operation" in

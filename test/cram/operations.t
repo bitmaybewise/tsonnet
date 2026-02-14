@@ -35,4 +35,4 @@
   }
 
   $ tsonnet ../../samples/operations/bitwise.jsonnet
-  { "or": 3 }
+  { "and": 1, "or": 3 }

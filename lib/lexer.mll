@@ -62,6 +62,7 @@ rule read =
   | '!' { NOT }
   | '~' { BITWISE_NOT }
   | '|' { BITWISE_OR }
+  | '&' { BITWISE_AND }
   | '=' { ASSIGN }
   | ';' { SEMICOLON }
   | '.' { DOT }

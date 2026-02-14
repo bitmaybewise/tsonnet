@@ -24,8 +24,8 @@
 %left PLUS MINUS
 %left MULTIPLY DIVIDE MODULO
 %token <string> ID
-%token NOT BITWISE_NOT BITWISE_OR
-%left  NOT BITWISE_NOT BITWISE_OR
+%token NOT BITWISE_NOT BITWISE_OR BITWISE_AND
+%left  NOT BITWISE_NOT BITWISE_OR BITWISE_AND
 %token SEMICOLON
 %token LOCAL
 %token ASSIGN
@@ -146,6 +146,7 @@ obj_field_access:
    | MODULO { Modulo }
    | EQUALITY { Equality }
    | BITWISE_OR { BitwiseOr }
+   | BITWISE_AND { BitwiseAnd }
    ;
 
 %inline unary_op:
