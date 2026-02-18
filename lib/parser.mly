@@ -31,6 +31,8 @@
 %token ASSIGN
 %token EQUALITY INEQUALITY IN
 %left EQUALITY INEQUALITY IN
+%token SHIFT_LEFT SHIFT_RIGHT
+%left SHIFT_LEFT SHIFT_RIGHT
 %token EOF
 
 %start <Ast.expr> prog
@@ -152,6 +154,8 @@ obj_field_access:
     | LOGICAL_AND { LogicalAnd }
     | LOGICAL_OR { LogicalOr }
     | IN { In }
+    | SHIFT_LEFT { ShiftLeft }
+    | SHIFT_RIGHT { ShiftRight }
     ;
 
 %inline unary_op:

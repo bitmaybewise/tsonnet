@@ -47,3 +47,9 @@
     "has_no_field": false,
     "has_no_field_bar": false
   }
+
+  $ tsonnet ../../samples/operations/shift_left.jsonnet
+  2
+
+  $ tsonnet ../../samples/operations/shift_right.jsonnet
+  2

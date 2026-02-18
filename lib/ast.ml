@@ -14,6 +14,8 @@ type bin_op =
   | LogicalAnd
   | LogicalOr
   | In
+  | ShiftLeft
+  | ShiftRight
   [@@deriving qcheck, show]
 
 type unary_op =
@@ -177,6 +179,8 @@ let rec string_of_type = function
     | LogicalAnd -> "&&"
     | LogicalOr -> "||"
     | In -> "in"
+    | ShiftLeft -> "<<"
+    | ShiftRight -> ">>"
     in prefix ^ " " ^ bin_op
   | UnaryOp (_, unary_op, _) ->
     let prefix = "Unary Operation" in

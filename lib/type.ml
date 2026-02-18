@@ -328,6 +328,8 @@ and translate_bin_op venv pos op e1 e2 =
   | BitwiseOr, Tnumber, Tnumber -> ok (venv'', Tnumber)
   | BitwiseAnd, Tnumber, Tnumber -> ok (venv'', Tnumber)
   | BitwiseXor, Tnumber, Tnumber -> ok (venv'', Tnumber)
+  | ShiftLeft, Tnumber, Tnumber -> ok (venv'', Tnumber)
+  | ShiftRight, Tnumber, Tnumber -> ok (venv'', Tnumber)
   | LogicalAnd, Tbool, Tbool -> ok (venv'', Tbool)
   | LogicalOr, Tbool, Tbool -> ok (venv'', Tbool)
   | Equality, _, _ -> ok (venv'', Tbool)
