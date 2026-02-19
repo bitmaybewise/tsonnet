@@ -8,6 +8,10 @@ type bin_op =
   | Modulo
   | Equality
   | Inequality
+  | GreaterThan
+  | GreaterThanOrEqual
+  | LessThan
+  | LessThanOrEqual
   | BitwiseOr
   | BitwiseAnd
   | BitwiseXor
@@ -173,6 +177,10 @@ let rec string_of_type = function
     | Modulo -> "%"
     | Equality -> "=="
     | Inequality -> "!="
+    | GreaterThan -> ">"
+    | GreaterThanOrEqual -> ">="
+    | LessThan -> "<"
+    | LessThanOrEqual -> "<="
     | BitwiseOr -> "|"
     | BitwiseAnd -> "&"
     | BitwiseXor -> "^"

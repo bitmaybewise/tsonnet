@@ -29,8 +29,8 @@
 %token SEMICOLON
 %token LOCAL
 %token ASSIGN
-%token EQUALITY INEQUALITY IN
-%left EQUALITY INEQUALITY IN
+%token EQUALITY INEQUALITY GREATER GREATER_EQUAL LESS LESS_EQUAL IN
+%left EQUALITY INEQUALITY GREATER GREATER_EQUAL LESS LESS_EQUAL IN
 %token SHIFT_LEFT SHIFT_RIGHT
 %left SHIFT_LEFT SHIFT_RIGHT
 %token EOF
@@ -141,22 +141,26 @@ obj_field_access:
   ;
 
 %inline bin_op:
-    | PLUS { Add }
-    | MINUS { Subtract }
-    | MULTIPLY { Multiply }
-    | DIVIDE { Divide }
-    | MODULO { Modulo }
-    | EQUALITY { Equality }
-    | INEQUALITY { Inequality }
-    | BITWISE_OR { BitwiseOr }
-    | BITWISE_AND { BitwiseAnd }
-    | BITWISE_XOR { BitwiseXor }
-    | LOGICAL_AND { LogicalAnd }
-    | LOGICAL_OR { LogicalOr }
-    | IN { In }
-    | SHIFT_LEFT { ShiftLeft }
-    | SHIFT_RIGHT { ShiftRight }
-    ;
+     | PLUS { Add }
+     | MINUS { Subtract }
+     | MULTIPLY { Multiply }
+     | DIVIDE { Divide }
+     | MODULO { Modulo }
+     | EQUALITY { Equality }
+     | INEQUALITY { Inequality }
+     | GREATER { GreaterThan }
+     | GREATER_EQUAL { GreaterThanOrEqual }
+     | LESS { LessThan }
+     | LESS_EQUAL { LessThanOrEqual }
+     | BITWISE_OR { BitwiseOr }
+     | BITWISE_AND { BitwiseAnd }
+     | BITWISE_XOR { BitwiseXor }
+     | LOGICAL_AND { LogicalAnd }
+     | LOGICAL_OR { LogicalOr }
+     | IN { In }
+     | SHIFT_LEFT { ShiftLeft }
+     | SHIFT_RIGHT { ShiftRight }
+     ;
 
 %inline unary_op:
   | PLUS { Plus }

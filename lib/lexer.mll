@@ -47,8 +47,12 @@ rule read =
   | "@'" { read_single_line_verbatim_single_quoted_string (Buffer.create 16) lexbuf }
   | "==" { EQUALITY }
   | "!=" { INEQUALITY }
+  | ">=" { GREATER_EQUAL }
+  | "<=" { LESS_EQUAL }
   | "<<" { SHIFT_LEFT }
   | ">>" { SHIFT_RIGHT }
+  | '>' { GREATER }
+  | '<' { LESS }
   | '[' { LEFT_SQR_BRACKET }
   | ']' { RIGHT_SQR_BRACKET }
   | '{' { LEFT_CURLY_BRACKET }

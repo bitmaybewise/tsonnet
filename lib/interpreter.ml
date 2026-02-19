@@ -13,7 +13,7 @@ let interpret_unary_op (op: unary_op) (evaluated_expr: expr) =
 
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
-  match expr with
+   match expr with
   | Null _ | Bool _ | String _ | Number _ | EvaluatedObject _ -> ok (env, expr)
   | Array (pos, exprs) -> interpret_array env (pos, exprs)
   | ParsedObject (pos, entries) -> interpret_object env (pos, entries)
@@ -240,7 +240,7 @@ and interpret_bin_op env (pos, op, e1, e2) =
      interpret_arith_op env2 (pos, op, v1, v2)
 
 and interpret_arith_op env (pos, bin_op, n1, n2) =
-  match bin_op, n1, n2 with
+   match bin_op, n1, n2 with
   | Add, Number (_, Int a), Number (_, Int b) ->
     ok (env, Number (pos, Int (a + b)))
   | Add, Number (_, Float a), Number (_, Int b) ->
@@ -344,8 +344,19 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
     | Bool (_, value) -> ok (env, Bool (pos, not value))
     | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
     )
+  | GreaterThan, v1, v2 -> interpret_compare_op env pos (>) v1 v2
+  | GreaterThanOrEqual, v1, v2 -> interpret_compare_op env pos (>=) v1 v2
+  | LessThan, v1, v2 -> interpret_compare_op env pos (<) v1 v2
+  | LessThanOrEqual, v1, v2 -> interpret_compare_op env pos (<=) v1 v2
   | _ ->
     Error.trace Error.Msg.invalid_binary_op pos >>= error
+
+and interpret_compare_op env pos compare_fn v1 v2 =
+  let to_float = function Int i -> float_of_int i | Float f -> f in
+  match v1, v2 with
+  | Number (_, n1), Number (_, n2) ->
+    ok (env, Bool (pos, compare_fn (to_float n1) (to_float n2)))
+  | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
 
 and interpret_in_op env pos field obj =
   match field, obj with
