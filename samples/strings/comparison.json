@@ -1,0 +1,16 @@
+{
+   "gt_false": false,
+   "gt_true": true,
+   "gte_false": false,
+   "gte_true": true,
+   "lt_false": false,
+   "lt_true": true,
+   "lte_false": false,
+   "lte_true": true,
+   "ordered": [
+      "A",
+      "a",
+      "b",
+      "é"
+   ]
+}

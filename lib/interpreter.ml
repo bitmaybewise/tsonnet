@@ -344,18 +344,40 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
     | Bool (_, value) -> ok (env, Bool (pos, not value))
     | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
     )
-  | GreaterThan, v1, v2 -> interpret_compare_op env pos (>) v1 v2
-  | GreaterThanOrEqual, v1, v2 -> interpret_compare_op env pos (>=) v1 v2
-  | LessThan, v1, v2 -> interpret_compare_op env pos (<) v1 v2
-  | LessThanOrEqual, v1, v2 -> interpret_compare_op env pos (<=) v1 v2
+  | GreaterThan, v1, v2 -> 
+    (match v1, v2 with
+    | Number _, Number _ -> interpret_compare_number env pos (>) v1 v2
+    | String _, String _ -> interpret_compare_string env pos (>) v1 v2
+    | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error)
+  | GreaterThanOrEqual, v1, v2 ->
+    (match v1, v2 with
+    | Number _, Number _ -> interpret_compare_number env pos (>=) v1 v2
+    | String _, String _ -> interpret_compare_string env pos (>=) v1 v2
+    | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error)
+  | LessThan, v1, v2 ->
+    (match v1, v2 with
+    | Number _, Number _ -> interpret_compare_number env pos (<) v1 v2
+    | String _, String _ -> interpret_compare_string env pos (<) v1 v2
+    | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error)
+  | LessThanOrEqual, v1, v2 ->
+    (match v1, v2 with
+    | Number _, Number _ -> interpret_compare_number env pos (<=) v1 v2
+    | String _, String _ -> interpret_compare_string env pos (<=) v1 v2
+    | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error)
   | _ ->
     Error.trace Error.Msg.invalid_binary_op pos >>= error
 
-and interpret_compare_op env pos compare_fn v1 v2 =
+and interpret_compare_number env pos compare_fn v1 v2 =
   let to_float = function Int i -> float_of_int i | Float f -> f in
   match v1, v2 with
   | Number (_, n1), Number (_, n2) ->
     ok (env, Bool (pos, compare_fn (to_float n1) (to_float n2)))
+  | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
+
+and interpret_compare_string env pos compare_fn v1 v2 =
+  match v1, v2 with
+  | String (_, s1), String (_, s2) ->
+    ok (env, Bool (pos, compare_fn s1 s2))
   | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
 
 and interpret_in_op env pos field obj =

@@ -338,6 +338,10 @@ and translate_bin_op venv pos op e1 e2 =
   | GreaterThanOrEqual, Tnumber, Tnumber -> ok (venv'', Tbool)
   | LessThan, Tnumber, Tnumber -> ok (venv'', Tbool)
   | LessThanOrEqual, Tnumber, Tnumber -> ok (venv'', Tbool)
+  | GreaterThan, Tstring, Tstring -> ok (venv'', Tbool)
+  | GreaterThanOrEqual, Tstring, Tstring -> ok (venv'', Tbool)
+  | LessThan, Tstring, Tstring -> ok (venv'', Tbool)
+  | LessThanOrEqual, Tstring, Tstring -> ok (venv'', Tbool)
   | In, Tstring, (Tobject _ | Tany | TruntimeObject _ | TobjectPtr _) -> ok (venv'', Tbool)
   | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
 
