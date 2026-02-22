@@ -242,3 +242,25 @@ module Indexable = struct
     | expr' ->
       Result.error ("Expected Integer index, got " ^ (string_of_type expr'))
 end
+
+module Compare = struct
+  let _cmp_num n1 n2 =
+    let to_float = function Int i -> float_of_int i | Float f -> f in
+    Float.compare (to_float n1) (to_float n2)
+
+  let _cmp_str s1 s2 = String.compare s1 s2
+
+  let _compare op v1 v2 =
+    match v1, v2 with
+    | Number (_, n1), Number (_, n2) -> op (_cmp_num n1 n2) 0
+    | String (_, s1), String (_, s2) -> op (_cmp_str s1 s2) 0
+    | _ ->
+      (* unreachable: the type checker rejects comparisons on
+         non-numeric/non-string types before evaluation *)
+      false
+
+  let gt v1 v2 = _compare (>) v1 v2
+  let gte v1 v2 = _compare (>=) v1 v2
+  let lt v1 v2 = _compare (<) v1 v2
+  let lte v1 v2 = _compare (<=) v1 v2
+end

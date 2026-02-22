@@ -45,26 +45,26 @@ let rec interpret env expr =
       ~err:(Error.error_at pos)
 
 and interpret_string_concat_op env e1 e2 =
-    match e1, e2 with
-    | String (_, s1), String (_, s2) ->
-      ok (env, String (dummy_pos, s1^s2))
-    | String (_, s1), val2 ->
-      let* (_, val2) = interpret env val2 in
-      let* s2 = Json.expr_to_string val2 in
-      ok (env, String (dummy_pos, s1^s2))
-    | val1, String (_, s2) ->
-      let* (_, val1) = interpret env val1 in
-      let* s1 = Json.expr_to_string val1 in
-      ok (env, String (dummy_pos, s1^s2))
-    | _ ->
-      error Error.Msg.interp_invalid_concat
+  match e1, e2 with
+  | String (_, s1), String (_, s2) ->
+    ok (env, String (dummy_pos, s1^s2))
+  | String (_, s1), val2 ->
+    let* (_, val2) = interpret env val2 in
+    let* s2 = Json.expr_to_string val2 in
+    ok (env, String (dummy_pos, s1^s2))
+  | val1, String (_, s2) ->
+    let* (_, val1) = interpret env val1 in
+    let* s1 = Json.expr_to_string val1 in
+    ok (env, String (dummy_pos, s1^s2))
+  | _ ->
+    error Error.Msg.interp_invalid_concat
 
 and interpret_array_concat_op env e1 e2 =
-    match e1, e2 with
-    | Array (pos, exprs1), Array (_, exprs2) ->
-      ok (env, Array (pos, List.append exprs1 exprs2))
-    | _ ->
-      error Error.Msg.interp_invalid_concat
+  match e1, e2 with
+  | Array (pos, exprs1), Array (_, exprs2) ->
+    ok (env, Array (pos, List.append exprs1 exprs2))
+  | _ ->
+    error Error.Msg.interp_invalid_concat
 
 and interpret_array env (pos, exprs) =
   let* (env', evaluated_exprs) = List.fold_left
@@ -344,41 +344,16 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
     | Bool (_, value) -> ok (env, Bool (pos, not value))
     | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
     )
-  | GreaterThan, v1, v2 -> 
-    (match v1, v2 with
-    | Number _, Number _ -> interpret_compare_number env pos (>) v1 v2
-    | String _, String _ -> interpret_compare_string env pos (>) v1 v2
-    | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error)
+  | GreaterThan, v1, v2 ->
+   ok (env, Bool (pos, Compare.gt v1 v2))
   | GreaterThanOrEqual, v1, v2 ->
-    (match v1, v2 with
-    | Number _, Number _ -> interpret_compare_number env pos (>=) v1 v2
-    | String _, String _ -> interpret_compare_string env pos (>=) v1 v2
-    | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error)
+   ok (env, Bool (pos, Compare.gte v1 v2))
   | LessThan, v1, v2 ->
-    (match v1, v2 with
-    | Number _, Number _ -> interpret_compare_number env pos (<) v1 v2
-    | String _, String _ -> interpret_compare_string env pos (<) v1 v2
-    | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error)
+   ok (env, Bool (pos, Compare.lt v1 v2))
   | LessThanOrEqual, v1, v2 ->
-    (match v1, v2 with
-    | Number _, Number _ -> interpret_compare_number env pos (<=) v1 v2
-    | String _, String _ -> interpret_compare_string env pos (<=) v1 v2
-    | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error)
+   ok (env, Bool (pos, Compare.lte v1 v2))
   | _ ->
     Error.trace Error.Msg.invalid_binary_op pos >>= error
-
-and interpret_compare_number env pos compare_fn v1 v2 =
-  let to_float = function Int i -> float_of_int i | Float f -> f in
-  match v1, v2 with
-  | Number (_, n1), Number (_, n2) ->
-    ok (env, Bool (pos, compare_fn (to_float n1) (to_float n2)))
-  | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
-
-and interpret_compare_string env pos compare_fn v1 v2 =
-  match v1, v2 with
-  | String (_, s1), String (_, s2) ->
-    ok (env, Bool (pos, compare_fn s1 s2))
-  | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
 
 and interpret_in_op env pos field obj =
   match field, obj with
