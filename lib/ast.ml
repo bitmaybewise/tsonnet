@@ -264,3 +264,23 @@ module Compare = struct
   let lt v1 v2 = _compare (<) v1 v2
   let lte v1 v2 = _compare (<=) v1 v2
 end
+
+module Object = struct
+  let merge_fields fields1 fields2 =
+    (* fields2 comes after and have preference over fields1 *)
+    let updated = List.map
+      (fun (k, v) ->
+        match List.assoc_opt k fields2 with
+        | Some v' -> (k, v')
+        | None -> (k, v)
+      )
+      fields1
+    in
+    (* (k,v) in fields2 not present in fields1 *)
+    let new_fields = List.filter
+      (fun (k, _) -> not (List.mem_assoc k fields1))
+      fields2
+    in
+    (* then we merge *)
+    updated @ new_fields
+end

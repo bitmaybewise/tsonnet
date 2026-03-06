@@ -18,3 +18,6 @@
 
   $ tsonnet ../../samples/objects/toplevel_field_lookup_chain.jsonnet
   { "answer": { "value": 42 }, "answer_to_the_ultimate_question": 42 }
+
+  $ tsonnet ../../samples/objects/merge.jsonnet
+  { "a": 1, "b": 3, "c": 4 }

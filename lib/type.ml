@@ -321,6 +321,8 @@ and translate_bin_op venv pos op e1 e2 =
   | Add, _, Tstring | Add, Tstring, _ -> ok (venv'', Tstring)
   | Add, Tnumber, Tnumber -> ok (venv'', Tnumber)
   | Add, (Tarray _), (Tarray _) -> ok (venv'', Tarray Tany)
+  | Add, (Tobject _ | TruntimeObject _ | TobjectPtr _), (Tobject _ | TruntimeObject _ | TobjectPtr _) ->
+    ok (venv'', Tany)
   | Subtract, Tnumber, Tnumber -> ok (venv'', Tnumber)
   | Multiply, Tnumber, Tnumber -> ok (venv'', Tnumber)
   | Divide, Tnumber, Tnumber -> ok (venv'', Tnumber)

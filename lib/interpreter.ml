@@ -66,6 +66,19 @@ and interpret_array_concat_op env e1 e2 =
   | _ ->
     error Error.Msg.interp_invalid_concat
 
+and interpret_object_merge_op env pos e1 e2 =
+  let eval_object = function
+    | EvaluatedObject _ as obj -> ok (env, obj)
+    | RuntimeObject _ as obj -> interpret env obj
+    | _ -> error Error.Msg.invalid_binary_op
+  in
+  let* (_, e1') = eval_object e1 in
+  let* (_, e2') = eval_object e2 in
+  match e1', e2' with
+  | EvaluatedObject (_, fields1), EvaluatedObject (_, fields2) ->
+    ok (env, EvaluatedObject (pos, Object.merge_fields fields1 fields2))
+  | _ -> error Error.Msg.invalid_binary_op
+
 and interpret_array env (pos, exprs) =
   let* (env', evaluated_exprs) = List.fold_left
     (fun result expr ->
@@ -234,6 +247,8 @@ and interpret_bin_op env (pos, op, e1, e2) =
      interpret_string_concat_op env2 v1 v2
    | Add, (Array _ as v1), (Array _ as v2)  ->
      interpret_array_concat_op env2 v1 v2
+   | Add, (EvaluatedObject _ | RuntimeObject _ as v1), (EvaluatedObject _ | RuntimeObject _ as v2) ->
+     interpret_object_merge_op env2 pos v1 v2
    | In, (String _ | Ident _ as field), (EvaluatedObject _ | RuntimeObject (_, _, _) as obj) ->
      interpret_in_op env2 pos field obj
    | _, v1, v2 ->
