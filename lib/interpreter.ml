@@ -280,6 +280,8 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
     ok (env, Number (pos, Float ((float_of_int a) *. b)))
   | Multiply, Number (_, Float a), Number (_, Float b) ->
     ok (env, Number (pos, Float (a *. b)))
+  | Divide, _, Number (_, n) when n = Int 0 || n = Float 0.0 ->
+    Error.error_at pos Error.Msg.interp_division_by_zero
   | Divide, Number (_, Int a), Number (_, Int b) ->
     ok (env, Number (pos, Float ((float_of_int a) /. (float_of_int b))))
   | Divide, Number (_, Float a), Number (_, Int b) ->
@@ -288,6 +290,8 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
     ok (env, Number (pos, Float ((float_of_int a) /. b)))
   | Divide, Number (_, Float a), Number (_, Float b) ->
     ok (env, Number (pos, Float (a /. b)))
+  | Modulo, _, Number (_, n) when n = Int 0 || n = Float 0.0 ->
+    Error.error_at pos Error.Msg.interp_division_by_zero
   | Modulo, Number (_, Int a), Number (_, Int b) ->
     ok (env, Number (pos, Int (a mod b)))
   | Modulo, Number (_, Float a), Number (_, Int b) ->

@@ -26,6 +26,7 @@ module Msg : sig
   val type_invalid_lookup_key : string -> string
 
   (* Interpreter messages *)
+  val interp_division_by_zero : string
   val interp_invalid_concat : string
   val interp_invalid_lookup : string
   val interp_cannot_interpret : string -> string

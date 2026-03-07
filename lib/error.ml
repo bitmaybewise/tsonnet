@@ -29,6 +29,7 @@ module Msg = struct
   let type_invalid_lookup_key expr = "Invalid object lookup key: " ^ expr
 
   (* Interpreter messages *)
+  let interp_division_by_zero = "Division by zero"
   let interp_invalid_concat = "Invalid concatenation operation"
   let interp_invalid_lookup = "Invalid object lookup"
   let interp_cannot_interpret expr = Printf.sprintf "Expression %s cannot be interpreted" expr
