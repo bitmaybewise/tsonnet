@@ -11,7 +11,7 @@ doc: "https://gitlab.com/bitmaybewise/tsonnet"
 bug-reports: "https://gitlab.com/bitmaybewise/tsonnet/-/issues"
 depends: [
   "ocaml" {>= "5.3.0"}
-  "dune" {>= "3.16" & >= "3.16.0"}
+  "dune" {>= "3.21" & >= "3.21.0"}
   "menhir" {= "20240715"}
   "alcotest" {with-test & >= "1.8.0" & < "2.0.0"}
   "qcheck-core" {with-test & = "0.25"}
@@ -36,3 +36,4 @@ build: [
   ]
 ]
 dev-repo: "git+https://gitlab.com/bitmaybewise/tsonnet.git"
+x-maintenance-intent: ["(latest)"]

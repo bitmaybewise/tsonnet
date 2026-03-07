@@ -1,4 +1,4 @@
-(lang dune 3.16)
+(lang dune 3.21)
 
 (name tsonnet)
 
@@ -23,7 +23,7 @@
   (ocaml
    (>= 5.3.0))
   (dune
-   (>= 3.16.0))
+   (>= 3.21.0))
   (menhir
    (= 20240715))
   (alcotest
