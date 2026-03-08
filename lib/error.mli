@@ -18,6 +18,7 @@ module Msg : sig
 
   (* Type checker messages *)
   val type_cyclic_reference : string -> string
+  val type_unused_variable : string -> string
   val type_non_indexable_value : string -> string
   val type_expected_integer_index : string -> string
   val type_invalid_expr : string -> string
@@ -37,3 +38,4 @@ end
 
 val trace : string -> Ast.position -> (string, string) result
 val error_at : Ast.position -> string -> ('a, string) result
+val warn : string -> Ast.position -> unit

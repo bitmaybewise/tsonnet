@@ -40,13 +40,28 @@
     }
   }
 
+  $ tsonnet ../../samples/variables/untouched_variable.jsonnet
+  Warning: ../../samples/variables/untouched_variable.jsonnet:1:0 Unused variable a
+  
+  1: local a = 1, b = 42;
+     ^^^^^^^^^^^^^^^^^^^^
+  42
+
   $ tsonnet ../../samples/variables/untouched_invalid_variable.jsonnet
-  Warning: ../../samples/variables/untouched_invalid_variable.jsonnet:1:31 Cyclic reference found for c
+  Warning: ../../samples/variables/untouched_invalid_variable.jsonnet:1:0 Unused variable c
   
   1: local a = 1, b = a, c = d, d = c;
      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  Warning: ../../samples/variables/untouched_invalid_variable.jsonnet:1:24 Cyclic reference found for d
+  Warning: ../../samples/variables/untouched_invalid_variable.jsonnet:1:0 Unused variable d
   
   1: local a = 1, b = a, c = d, d = c;
-     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  Warning: ../../samples/variables/untouched_invalid_variable.jsonnet:1:0 Cyclic reference found for c
+  
+  1: local a = 1, b = a, c = d, d = c;
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  Warning: ../../samples/variables/untouched_invalid_variable.jsonnet:1:0 Cyclic reference found for d
+  
+  1: local a = 1, b = a, c = d, d = c;
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   1

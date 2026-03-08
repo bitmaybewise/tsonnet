@@ -21,6 +21,7 @@ module Msg = struct
 
   (* Type checker messages *)
   let type_cyclic_reference varname = "Cyclic reference found for " ^ varname
+  let type_unused_variable varname = "Unused variable " ^ varname
   let type_non_indexable_value ty = ty ^ " is a non indexable value"
   let type_expected_integer_index ty = "Expected Integer index, got " ^ ty
   let type_invalid_expr expr = "Invalid type " ^ expr
@@ -104,3 +105,8 @@ let trace (err: string) (pos: position) : (string, string) result =
     (fun content -> ok (Printf.sprintf "%s\n%s" (trace_file_position err pos) content))
 
 let error_at pos = fun msg -> trace msg pos >>= error
+
+let warn msg pos =
+  match trace msg pos with
+  | Ok formatted -> prerr_endline ("Warning: " ^ formatted)
+  | Error _ -> prerr_endline ("Warning: " ^ msg)

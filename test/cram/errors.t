@@ -59,6 +59,14 @@
 
 
   $ tsonnet ../../samples/errors/undefined_local.jsonnet
+  Warning: ../../samples/errors/undefined_local.jsonnet:1:0 Unused variable a
+  
+  1: local a = 1;
+     ^^^^^^^^^^^^
+  Warning: ../../samples/errors/undefined_local.jsonnet:2:0 Unused variable b
+  
+  2: local b = 2;
+     ^^^^^^^^^^^^
   ../../samples/errors/undefined_local.jsonnet:3:0 Undefined variable: c
   
   3: c

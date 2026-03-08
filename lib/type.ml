@@ -247,6 +247,11 @@ and translate_seq venv exprs =
       (* Determine which vars are reachable from the body *)
       let body_idents = List.concat_map collect_free_idents body in
       let reachable = reachable_bindings all_vars body_idents in
+      (* Warn on unused variables *)
+      List.iter (fun (pos, (varname, _)) ->
+        if not (List.mem varname reachable)
+        then Error.warn (Error.Msg.type_unused_variable varname) pos
+      ) all_pos_vars;
       (* Check cycles: error for reachable, warn for unreachable *)
       let* () = List.fold_left
         (fun acc (pos, (varname, _)) -> acc >>= fun () ->
@@ -255,7 +260,7 @@ and translate_seq venv exprs =
           | Error msg ->
             if List.mem varname reachable
             then error msg
-            else (prerr_endline ("Warning: " ^ msg); ok ())
+            else (Error.warn (Error.Msg.type_cyclic_reference varname) pos; ok ())
         )
         (ok ())
         all_pos_vars

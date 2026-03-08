@@ -1,4 +1,8 @@
   $ tsonnet ../../samples/semantics/valid_binding_cycle.jsonnet
+  Warning: ../../samples/semantics/valid_binding_cycle.jsonnet:3:0 Unused variable c
+  
+  3: local c = a;
+     ^^^^^^^^^^^^
   1
 
   $ tsonnet ../../samples/semantics/invalid_binding_itself.jsonnet
@@ -9,6 +13,14 @@
   [1]
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle.jsonnet
+  Warning: ../../samples/semantics/invalid_binding_cycle.jsonnet:2:0 Unused variable b
+  
+  2: local b = d;
+     ^^^^^^^^^^^^
+  Warning: ../../samples/semantics/invalid_binding_cycle.jsonnet:4:0 Unused variable d
+  
+  4: local d = 1;
+     ^^^^^^^^^^^^
   ../../samples/semantics/invalid_binding_cycle.jsonnet:3:10 Cyclic reference found for a
   
   3: local c = a;
