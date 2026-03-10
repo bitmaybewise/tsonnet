@@ -376,22 +376,31 @@ and translate_object_field_access venv pos scope chain_exprs =
     (fun acc field_expr ->
       let* (venv, prev_ty) = acc in
 
-      let get_obj_id =
+      let get_obj_id_and_env =
         match prev_ty with
-        | TobjectPtr (obj_id, _) -> ok obj_id
-        | TruntimeObject (obj_id, _) -> ok obj_id
+        | TobjectPtr (obj_id, _) -> ok (obj_id, venv)
+        | TruntimeObject (obj_id, _) ->
+          (* TODO: we haven't included the environment in TruntimeObject yet.
+             It must be done such as Ast.RuntimeObject *)
+          let field_venv =
+            Env.add_local "self" (TobjectPtr (obj_id, TobjectSelf)) venv
+          in
+          let field_venv =
+            Env.add_local_when_not_present "$" (TobjectPtr (obj_id, TobjectTopLevel)) field_venv |> fst
+          in
+          ok (obj_id, field_venv)
         | _ -> Error.error_at pos Error.Msg.must_be_object
       in
 
       match field_expr with
       | String (_, field) | Ident (_, field) ->
-        let* obj_id = get_obj_id in
+        let* (obj_id, field_venv) = get_obj_id_and_env in
         let key = Env.uniq_field_ident obj_id field in
         if ObjectFields.mem key !translating_fields then
           Error.error_at pos (Error.Msg.type_cyclic_reference key)
         else begin
           translating_fields := ObjectFields.add key !translating_fields;
-          let result = Env.get_obj_field field obj_id venv
+          let result = Env.get_obj_field field obj_id field_venv
             ~succ:translate_lazy
             ~err:(Error.error_at pos)
           in

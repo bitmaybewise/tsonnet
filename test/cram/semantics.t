@@ -52,7 +52,11 @@
      ^^^^^^^^^^^^^^^^
   4:     local c = b,
      ^^^^^^^^^^^^^^^^
-  {}
+  ../../samples/semantics/invalid_binding_cycle_object_locals.jsonnet:4:14 Cyclic reference found for b
+  
+  4:     local c = b,
+     ^^^^^^^^^^^^^^^^
+  [1]
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_binop.jsonnet
   ../../samples/semantics/invalid_binding_cycle_binop.jsonnet:2:10 Cyclic reference found for a
@@ -92,7 +96,11 @@
      ^^^^^^^^^^^^^^
   3:     b: self.a,
      ^^^^^^^^^^^^^^
-  {}
+  ../../samples/semantics/invalid_binding_cycle_object_fields.jsonnet:2:12 Cyclic reference found for 1->b
+  
+  2:     a: self.b,
+     ^^^^^^^^^^^^^^
+  [1]
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_object_nested_field.jsonnet
   Warning: ../../samples/semantics/invalid_binding_cycle_object_nested_field.jsonnet:1:0 Cyclic reference found for 1->a
@@ -135,7 +143,11 @@
               ^^^^^^^^^
   4:     },
               
-  { "a": {} }
+  ../../samples/semantics/invalid_binding_cycle_object_nested_field.jsonnet:3:17 Cyclic reference found for 1->b
+  
+  3:         value: $.b
+     ^^^^^^^^^^^^^^^^^^
+  [1]
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_outer_object_fields.jsonnet
   Warning: ../../samples/semantics/invalid_binding_cycle_outer_object_fields.jsonnet:1:0 Cyclic reference found for 1->a
@@ -154,7 +166,11 @@
      ^^^^^^^^^^^
   3:     b: $.a,
      ^^^^^^^^^^^
-  {}
+  ../../samples/semantics/invalid_binding_cycle_outer_object_fields.jsonnet:2:9 Cyclic reference found for 1->b
+  
+  2:     a: $.b,
+     ^^^^^^^^^^^
+  [1]
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_object_field_and_local.jsonnet
   Warning: ../../samples/semantics/invalid_binding_cycle_object_field_and_local.jsonnet:1:0 Cyclic reference found for 1->b
@@ -165,7 +181,11 @@
      ^^^^^^^^^^^^^^^^^^^^^
   3:     b: a,
      ^^^^^^^^^
-  {}
+  ../../samples/semantics/invalid_binding_cycle_object_field_and_local.jsonnet:3:7 Cyclic reference found for a
+  
+  3:     b: a,
+     ^^^^^^^^^
+  [1]
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_indexed_field.jsonnet
   Warning: ../../samples/semantics/invalid_binding_cycle_indexed_field.jsonnet:1:0 Cyclic reference found for 1->arr
@@ -184,10 +204,14 @@
      ^^^^^^^^^^^^^^^^^^^^^^
   3:     first: self.arr[0]
      ^^^^^^^^^^^^^^^^^^^^^^
-  {}
+  ../../samples/semantics/invalid_binding_cycle_indexed_field.jsonnet:2:15 Cyclic reference found for 1->first
+  
+  2:     arr: [self.first],
+     ^^^^^^^^^^^^^^^^^^^^^^
+  [1]
 
-  $ tsonnet ../../samples/semantics/valid_object_with_cyclic_field.jsonnet
-  Warning: ../../samples/semantics/valid_object_with_cyclic_field.jsonnet:1:0 Cyclic reference found for 1->b
+  $ tsonnet ../../samples/semantics/invalid_object_with_cyclic_field.jsonnet
+  Warning: ../../samples/semantics/invalid_object_with_cyclic_field.jsonnet:1:0 Cyclic reference found for 1->b
   
   1: {
      ^
@@ -197,7 +221,7 @@
      ^^^^^^^^^^^^^^
   4:     c: self.b,
      ^^^^^^^^^^^^^^
-  Warning: ../../samples/semantics/valid_object_with_cyclic_field.jsonnet:1:0 Cyclic reference found for 1->c
+  Warning: ../../samples/semantics/invalid_object_with_cyclic_field.jsonnet:1:0 Cyclic reference found for 1->c
   
   1: {
      ^
@@ -207,7 +231,11 @@
      ^^^^^^^^^^^^^^
   4:     c: self.b,
      ^^^^^^^^^^^^^^
-  { "a": 1 }
+  ../../samples/semantics/invalid_object_with_cyclic_field.jsonnet:3:12 Cyclic reference found for 1->c
+  
+  3:     b: self.c,
+     ^^^^^^^^^^^^^^
+  [1]
 
   $ tsonnet ../../samples/semantics/valid_object_access_non_cyclic_field.jsonnet
   Warning: ../../samples/semantics/valid_object_access_non_cyclic_field.jsonnet:1:0 Unused variable obj

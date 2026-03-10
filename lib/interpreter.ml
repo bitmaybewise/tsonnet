@@ -242,27 +242,19 @@ and interpret_runtime_object env (pos, obj_env, fields) =
 and interpret_runtime_object_fields obj_env fields =
   match Env.Map.find_opt "self" obj_env with
   | Some (ObjectPtr (obj_id, _)) ->
-    let field_list =
+    let* field_list =
       ObjectFields.fold
         (fun field acc ->
+          let* evaluated_fields = acc in
           let key = Env.uniq_field_ident obj_id field in
-          if ObjectFields.mem key !evaluating_fields then
-            acc (* Skip: cyclic reference detected *)
-          else
-            match Env.Map.find_opt key obj_env with
-            | Some expr ->
-              evaluating_fields := ObjectFields.add key !evaluating_fields;
-              let result =
-                match interpret obj_env expr with
-                | Ok (_, evaluated) -> (field, evaluated) :: acc
-                | Error _ -> acc
-              in
-              evaluating_fields := ObjectFields.remove key !evaluating_fields;
-              result
-            | None -> acc
+          match Env.Map.find_opt key obj_env with
+          | Some expr ->
+            let* (_, evaluated) = interpret obj_env expr in
+            ok ((field, evaluated) :: evaluated_fields)
+          | None -> acc
         )
         fields
-        []
+        (ok [])
     in ok (List.rev field_list)
   | _ -> ok []
 
