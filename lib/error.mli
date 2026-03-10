@@ -36,6 +36,5 @@ module Msg : sig
   val value_not_represetable_as_json : string -> string
 end
 
-val trace : string -> Ast.position -> (string, string) result
 val error_at : Ast.position -> string -> ('a, string) result
 val warn : string -> Ast.position -> unit

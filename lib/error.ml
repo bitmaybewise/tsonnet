@@ -104,9 +104,12 @@ let trace (err: string) (pos: position) : (string, string) result =
     (enumerate_error_lines pos.startpos.pos_fname pos ~highlight_error: plot_caret)
     (fun content -> ok (Printf.sprintf "%s\n%s" (trace_file_position err pos) content))
 
-let error_at pos = fun msg -> trace msg pos >>= error
+let error_at pos = fun msg ->
+  let* error_msg = trace msg pos in
+  error ("ERROR: " ^ error_msg)
 
 let warn msg pos =
+  let _warn msg = prerr_endline ("WARNING: " ^ msg ^ "\n---") in
   match trace msg pos with
-  | Ok formatted -> prerr_endline ("Warning: " ^ formatted)
-  | Error _ -> prerr_endline ("Warning: " ^ msg)
+  | Ok formatted -> _warn formatted
+  | Error _ -> _warn msg

@@ -91,7 +91,7 @@ let reachable_bindings bindings initial_idents =
 let rec check_cyclic_refs venv varname seen pos =
   if List.mem varname seen
   then
-    Error.trace (Error.Msg.type_cyclic_reference varname) pos >>= error
+    Error.error_at pos (Error.Msg.type_cyclic_reference varname)
   else
     match Env.find_opt varname venv with
     | Some (Lazy expr) -> check_expr_for_cycles venv expr (varname :: seen)
@@ -213,7 +213,7 @@ let rec translate venv expr =
     match op, expr' with
     | Plus, Tnumber | Minus, Tnumber | BitwiseNot, Tnumber -> ok (venv', Tnumber)
     | Not, Tbool | BitwiseNot, Tbool -> ok (venv', Tbool)
-    | _ -> Error.trace Error.Msg.invalid_unary_op pos >>= error
+    | _ -> Error.error_at pos Error.Msg.invalid_unary_op
     )
   | IndexedExpr (pos, varname, index_expr) ->
     (let* (venv', index_expr') = translate venv index_expr in
@@ -228,7 +228,7 @@ let rec translate venv expr =
           | ty -> error (Error.Msg.type_non_indexable_value (to_string ty))
         )
         ~err:(Error.error_at pos)
-    | ty -> Error.trace (Error.Msg.type_expected_integer_index (to_string ty)) pos >>= error
+    | ty -> Error.error_at pos (Error.Msg.type_expected_integer_index (to_string ty))
     )
   | expr' ->
     error (Error.Msg.type_invalid_expr (string_of_type expr'))
@@ -451,7 +451,7 @@ and translate_bin_op venv pos op e1 e2 =
   | LessThan, Tstring, Tstring -> ok (venv'', Tbool)
   | LessThanOrEqual, Tstring, Tstring -> ok (venv'', Tbool)
   | In, Tstring, (Tobject _ | Tany | TruntimeObject _ | TobjectPtr _) -> ok (venv'', Tbool)
-  | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
+  | _ -> Error.error_at pos Error.Msg.invalid_binary_op
 
 let check (config : Config.t) expr  =
   let* _ = Scope.validate expr in

@@ -380,7 +380,7 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
     let* (_, expr) = interpret_arith_op env (pos, Equality, v1, v2) in
     (match expr with
     | Bool (_, value) -> ok (env, Bool (pos, not value))
-    | _ -> Error.trace Error.Msg.invalid_binary_op pos >>= error
+    | _ -> Error.error_at pos Error.Msg.invalid_binary_op
     )
   | GreaterThan, v1, v2 ->
    ok (env, Bool (pos, Compare.gt v1 v2))
@@ -391,7 +391,7 @@ and interpret_arith_op env (pos, bin_op, n1, n2) =
   | LessThanOrEqual, v1, v2 ->
    ok (env, Bool (pos, Compare.lte v1 v2))
   | _ ->
-    Error.trace Error.Msg.invalid_binary_op pos >>= error
+    Error.error_at pos Error.Msg.invalid_binary_op
 
 and interpret_in_op env pos field obj =
   match field, obj with
@@ -404,7 +404,7 @@ and interpret_in_op env pos field obj =
     let field_exists = ObjectFields.exists (fun name -> name = field_str) fields in
     ok (env, Bool (pos, field_exists))
   | _ ->
-    Error.trace Error.Msg.invalid_binary_op pos >>= error
+    Error.error_at pos Error.Msg.invalid_binary_op
 
 let rec deep_eval expr =
   match expr with

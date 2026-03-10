@@ -58,8 +58,8 @@ let rec _validate expr context =
 
 and validate_ident pos varname context =
   match (varname, context.in_object) with
-  | ("self", false) -> Error.trace Error.Msg.self_out_of_scope pos >>= error
-  | ("$", false) -> Error.trace Error.Msg.no_toplevel_object pos >>= error
+  | ("self", false) -> Error.error_at pos Error.Msg.self_out_of_scope
+  | ("$", false) -> Error.error_at pos Error.Msg.no_toplevel_object
   | _ -> ok ()
 
 and validate_expression_list exprs context =
@@ -111,7 +111,7 @@ and validate_object_field_access pos scope context =
         | TopLevel -> Error.Msg.no_toplevel_object
         | ObjVarRef _ -> "" (* unreachable *)
       in
-      Error.trace with_error_msg pos >>= error
+      Error.error_at pos with_error_msg
     else ok ()
   | ObjVarRef _ ->
     (* Variable references are allowed anywhere *)
