@@ -91,3 +91,17 @@
       "served": "Straight Up"
     }
   }
+
+  $ tsonnet ../../samples/tutorials/arith.jsonnet
+  {
+    "concat_array": [ 1, 2, 3, 4 ],
+    "concat_string": "1234",
+    "equality1": false,
+    "equality2": true,
+    "ex1": 1.6666666666666665,
+    "ex2": 3,
+    "ex3": 1.6666666666666665,
+    "ex4": true,
+    "obj": { "a": 1, "b": 3, "c": 4 },
+    "obj_member": true
+  }
