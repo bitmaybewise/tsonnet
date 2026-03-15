@@ -22,18 +22,7 @@ let rec interpret env expr =
   | RuntimeObject (pos, obj_env, fields) -> interpret_runtime_object env (pos, obj_env, fields)
   | ObjectPtr _ as obj_ptr -> ok (env, obj_ptr)
   | ObjectFieldAccess (pos, scope, chain) -> interpret_object_field_access env (pos, scope, chain)
-  | Ident (pos, varname) ->
-    if ObjectFields.mem varname !evaluating_fields then
-      Error.error_at pos (Error.Msg.type_cyclic_reference varname)
-    else begin
-      evaluating_fields := ObjectFields.add varname !evaluating_fields;
-      let result = Env.find_var varname env
-        ~succ:(fun env' expr -> interpret env' expr)
-        ~err:(Error.error_at pos)
-      in
-      evaluating_fields := ObjectFields.remove varname !evaluating_fields;
-      result
-    end
+  | Ident (pos, varname) -> interpret_ident env pos varname
   | BinOp (pos, op, e1, e2) -> interpret_bin_op env (pos, op, e1, e2)
   | UnaryOp (pos, op, expr) ->
     let* (env', expr') = interpret env expr in
@@ -405,6 +394,19 @@ and interpret_in_op env pos field obj =
     ok (env, Bool (pos, field_exists))
   | _ ->
     Error.error_at pos Error.Msg.invalid_binary_op
+
+and interpret_ident env pos varname =
+  if ObjectFields.mem varname !evaluating_fields then
+    Error.error_at pos (Error.Msg.type_cyclic_reference varname)
+  else begin
+    evaluating_fields := ObjectFields.add varname !evaluating_fields;
+    let result = Env.find_var varname env
+      ~succ:(fun env' expr -> interpret env' expr)
+      ~err:(Error.error_at pos)
+    in
+    evaluating_fields := ObjectFields.remove varname !evaluating_fields;
+    result
+  end
 
 let rec deep_eval expr =
   match expr with
