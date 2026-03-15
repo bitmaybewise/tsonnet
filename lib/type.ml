@@ -153,22 +153,7 @@ let rec translate venv expr =
   | Bool _ -> ok (venv, Tbool)
   | Number _ -> ok (venv, Tnumber)
   | String _ -> ok (venv, Tstring)
-  | Ident (pos, varname) ->
-    if ObjectFields.mem varname !translating_fields then
-      Error.error_at pos (Error.Msg.type_cyclic_reference varname)
-    else begin
-      translating_fields := ObjectFields.add varname !translating_fields;
-      let result = Env.find_var varname venv
-        ~succ:(fun venv ty ->
-          match ty with
-          | Lazy expr -> translate venv expr
-          | _ -> ok (venv, ty)
-        )
-        ~err:(Error.error_at pos)
-      in
-      translating_fields := ObjectFields.remove varname !translating_fields;
-      result
-    end
+  | Ident (pos, varname) -> translate_ident venv pos varname
   | Array (_pos, elems) ->
     (* As of now, we compare each element and if all have the same type,
       it is an array of this type, otherwise it will be an array of any.
@@ -281,6 +266,23 @@ and translate_seq venv exprs =
       go venv' rest
   in
   go venv exprs
+
+and translate_ident venv pos varname =
+  if ObjectFields.mem varname !translating_fields then
+    Error.error_at pos (Error.Msg.type_cyclic_reference varname)
+  else begin
+    translating_fields := ObjectFields.add varname !translating_fields;
+    let result = Env.find_var varname venv
+      ~succ:(fun venv ty ->
+        match ty with
+        | Lazy expr -> translate venv expr
+        | _ -> ok (venv, ty)
+      )
+      ~err:(Error.error_at pos)
+    in
+    translating_fields := ObjectFields.remove varname !translating_fields;
+    result
+  end
 
 and translate_lazy venv = function
   | Lazy expr -> translate venv expr
