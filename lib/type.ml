@@ -154,32 +154,7 @@ let rec translate venv expr =
   | Number _ -> ok (venv, Tnumber)
   | String _ -> ok (venv, Tstring)
   | Ident (pos, varname) -> translate_ident venv pos varname
-  | Array (_pos, elems) ->
-    (* As of now, we compare each element and if all have the same type,
-      it is an array of this type, otherwise it will be an array of any.
-      Since JSON doesn't care about types, this is the simpler way of
-      handling such case in compatibility with Jsonnet. However, when we
-      actually use the items, given the flexibility of JSON and Jsonnet
-      regarding types, we may need to support polymorphic arrays in a more
-      flexible way, but I'm leaving this problem unsolved for now until I
-      finally need to.
-    *)
-    (match elems with
-    | [] -> ok (venv, Tany)
-    | elem :: rest ->
-      let ty = Lazy elem in
-      let* (venv, ty) =
-        List.fold_left
-          (fun acc elem -> acc >>= fun (venv, ty) ->
-            let elem_ty = Lazy elem in
-            if ty = elem_ty
-            then ok (venv, elem_ty)
-            else ok (venv, Tany)
-          )
-          (ok (venv, ty))
-          rest
-      in ok (venv, Tarray ty)
-    )
+  | Array (_pos, elems) -> translate_array venv elems
   | ParsedObject (pos, entries) -> translate_object venv pos entries
   | ObjectFieldAccess (pos, scope, chain) -> translate_object_field_access venv pos scope chain
   | Local (_pos, vars) ->
@@ -283,6 +258,33 @@ and translate_ident venv pos varname =
     translating_fields := ObjectFields.remove varname !translating_fields;
     result
   end
+
+and translate_array venv elems =
+  (* As of now, we compare each element and if all have the same type,
+     it is an array of this type, otherwise it will be an array of any.
+     Since JSON doesn't care about types, this is the simpler way of
+     handling such case in compatibility with Jsonnet. However, when we
+     actually use the items, given the flexibility of JSON and Jsonnet
+     regarding types, we may need to support polymorphic arrays in a more
+     flexible way, but I'm leaving this problem unsolved for now until I
+     finally need to.
+  *)
+  (match elems with
+  | [] -> ok (venv, Tany)
+  | elem :: rest ->
+    let ty = Lazy elem in
+    let* (venv, ty) =
+      List.fold_left
+        (fun acc elem -> acc >>= fun (venv, ty) ->
+          let elem_ty = Lazy elem in
+          if ty = elem_ty
+          then ok (venv, elem_ty)
+          else ok (venv, Tany)
+        )
+        (ok (venv, ty))
+        rest
+    in ok (venv, Tarray ty)
+  )
 
 and translate_lazy venv = function
   | Lazy expr -> translate venv expr
