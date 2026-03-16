@@ -161,23 +161,24 @@ let rec translate venv expr =
   | Seq exprs -> translate_seq venv exprs
   | BinOp (pos, op, e1, e2) -> translate_bin_op venv pos op e1 e2
   | UnaryOp (pos, op, expr) -> translate_unary_op venv (pos, op, expr)
-  | IndexedExpr (pos, varname, index_expr) ->
-    (let* (venv', index_expr') = translate venv index_expr in
-    match index_expr' with
-    | Tnumber ->
-      Env.find_var varname venv'
-        ~succ:(fun venv' expr' ->
-          match expr' with
-          | (Tarray _) as ty -> ok (venv', ty)
-          | Tstring as ty -> ok (venv', ty)
-          | Lazy expr -> translate venv expr
-          | ty -> error (Error.Msg.type_non_indexable_value (to_string ty))
-        )
-        ~err:(Error.error_at pos)
-    | ty -> Error.error_at pos (Error.Msg.type_expected_integer_index (to_string ty))
-    )
+  | IndexedExpr (pos, varname, index_expr) -> translate_indexed_expr venv (pos, varname, index_expr)
   | expr' ->
     error (Error.Msg.type_invalid_expr (string_of_type expr'))
+
+and translate_indexed_expr venv (pos, varname, index_expr) =
+  let* (venv', index_expr') = translate venv index_expr in
+  match index_expr' with
+  | Tnumber ->
+    Env.find_var varname venv'
+      ~succ:(fun venv' expr' ->
+        match expr' with
+        | (Tarray _) as ty -> ok (venv', ty)
+        | Tstring as ty -> ok (venv', ty)
+        | Lazy expr -> translate venv expr
+        | ty -> error (Error.Msg.type_non_indexable_value (to_string ty))
+      )
+      ~err:(Error.error_at pos)
+  | ty -> Error.error_at pos (Error.Msg.type_expected_integer_index (to_string ty))
 
 and translate_unary_op venv (pos, op, expr) =
   let* (venv', expr') = translate venv expr in
