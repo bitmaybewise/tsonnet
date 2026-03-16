@@ -6,7 +6,7 @@ let evaluating_fields = ref ObjectFields.empty
 
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
-   match expr with
+  match expr with
   | Null _ | Bool _ | String _ | Number _ | EvaluatedObject _ -> ok (env, expr)
   | Array (pos, exprs) -> interpret_array env (pos, exprs)
   | ParsedObject (pos, entries) -> interpret_object env (pos, entries)
@@ -19,16 +19,18 @@ let rec interpret env expr =
   | Local (_, vars) -> interpret_local env vars
   | Unit -> ok (env, Unit)
   | Seq exprs -> interpret_seq env exprs
-  | IndexedExpr (pos, varname, index_expr) ->
-    let* (env', index_expr') = interpret env index_expr in
-    Env.find_var varname env'
-      ~succ:(fun env' expr ->
-        Result.fold
-          (Indexable.get index_expr' expr)
-          ~ok:(fun e -> interpret env' e)
-          ~error:(Error.error_at pos)
-      )
-      ~err:(Error.error_at pos)
+  | IndexedExpr (pos, varname, index_expr) -> interpret_indexed_expr env (pos, varname, index_expr)
+
+and interpret_indexed_expr env (pos, varname, index_expr) =
+  let* (env', index_expr') = interpret env index_expr in
+  Env.find_var varname env'
+    ~succ:(fun env' expr ->
+      Result.fold
+        (Indexable.get index_expr' expr)
+        ~ok:(fun e -> interpret env' e)
+        ~error:(Error.error_at pos)
+    )
+    ~err:(Error.error_at pos)
 
 and interpret_unary_op env (pos, op, expr) =
   let* (env', expr') = interpret env expr in
