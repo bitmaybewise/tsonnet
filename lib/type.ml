@@ -160,13 +160,7 @@ let rec translate venv expr =
   | Local (_pos, vars) -> translate_local venv vars
   | Seq exprs -> translate_seq venv exprs
   | BinOp (pos, op, e1, e2) -> translate_bin_op venv pos op e1 e2
-  | UnaryOp (pos, op, expr) ->
-    (let* (venv', expr') = translate venv expr in
-    match op, expr' with
-    | Plus, Tnumber | Minus, Tnumber | BitwiseNot, Tnumber -> ok (venv', Tnumber)
-    | Not, Tbool | BitwiseNot, Tbool -> ok (venv', Tbool)
-    | _ -> Error.error_at pos Error.Msg.invalid_unary_op
-    )
+  | UnaryOp (pos, op, expr) -> translate_unary_op venv (pos, op, expr)
   | IndexedExpr (pos, varname, index_expr) ->
     (let* (venv', index_expr') = translate venv index_expr in
     match index_expr' with
@@ -184,6 +178,13 @@ let rec translate venv expr =
     )
   | expr' ->
     error (Error.Msg.type_invalid_expr (string_of_type expr'))
+
+and translate_unary_op venv (pos, op, expr) =
+  let* (venv', expr') = translate venv expr in
+  match op, expr' with
+  | Plus, Tnumber | Minus, Tnumber | BitwiseNot, Tnumber -> ok (venv', Tnumber)
+  | Not, Tbool | BitwiseNot, Tbool -> ok (venv', Tbool)
+  | _ -> Error.error_at pos Error.Msg.invalid_unary_op
 
 and translate_local venv vars =
   let venv' = List.fold_left
