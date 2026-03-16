@@ -157,17 +157,9 @@ let rec translate venv expr =
   | Array (_pos, elems) -> translate_array venv elems
   | ParsedObject (pos, entries) -> translate_object venv pos entries
   | ObjectFieldAccess (pos, scope, chain) -> translate_object_field_access venv pos scope chain
-  | Local (_pos, vars) ->
-    let venv' = List.fold_left
-      (* Adds an expr to the env to be evaluated at a later point in time (when required) *)
-      (fun venv (varname, var_expr) -> Env.add_local varname (Lazy var_expr) venv)
-      venv
-      vars
-    in ok (venv', Tunit)
-  | Seq exprs ->
-    translate_seq venv exprs
-  | BinOp (pos, op, e1, e2) ->
-    translate_bin_op venv pos op e1 e2
+  | Local (_pos, vars) -> translate_local venv vars
+  | Seq exprs -> translate_seq venv exprs
+  | BinOp (pos, op, e1, e2) -> translate_bin_op venv pos op e1 e2
   | UnaryOp (pos, op, expr) ->
     (let* (venv', expr') = translate venv expr in
     match op, expr' with
@@ -192,6 +184,13 @@ let rec translate venv expr =
     )
   | expr' ->
     error (Error.Msg.type_invalid_expr (string_of_type expr'))
+
+and translate_local venv vars =
+  let venv' = List.fold_left
+    (fun venv (varname, var_expr) -> Env.add_local varname (Lazy var_expr) venv)
+    venv
+    vars
+  in ok (venv', Tunit)
 
 and translate_seq venv exprs =
   let rec collect_locals = function
