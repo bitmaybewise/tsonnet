@@ -4,15 +4,6 @@ open Syntax_sugar
 
 let evaluating_fields = ref ObjectFields.empty
 
-let interpret_unary_op (op: unary_op) (evaluated_expr: expr) =
-  match op, evaluated_expr with
-  | Plus, number -> ok number
-  | Minus, Number (pos, Int i) -> ok (Number (pos, Int (-i)))
-  | Minus, Number (pos, Float f) -> ok (Number (pos, Float (-. f)))
-  | Not, (Bool (pos, b)) -> ok (Bool (pos, not b))
-  | BitwiseNot, Number (pos, Int i) -> ok (Number (pos, Int (lnot i)))
-  | _ -> error Error.Msg.invalid_unary_op
-
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
    match expr with
@@ -24,11 +15,7 @@ let rec interpret env expr =
   | ObjectFieldAccess (pos, scope, chain) -> interpret_object_field_access env (pos, scope, chain)
   | Ident (pos, varname) -> interpret_ident env pos varname
   | BinOp (pos, op, e1, e2) -> interpret_bin_op env (pos, op, e1, e2)
-  | UnaryOp (pos, op, expr) ->
-    let* (env', expr') = interpret env expr in
-    Result.fold (interpret_unary_op op expr')
-      ~ok:(fun expr' -> ok (env', expr'))
-      ~error:(Error.error_at pos)
+  | UnaryOp (pos, op, expr) -> interpret_unary_op env (pos, op, expr)
   | Local (_, vars) -> interpret_local env vars
   | Unit -> ok (env, Unit)
   | Seq exprs -> interpret_seq env exprs
@@ -42,6 +29,16 @@ let rec interpret env expr =
           ~error:(Error.error_at pos)
       )
       ~err:(Error.error_at pos)
+
+and interpret_unary_op env (pos, op, expr) =
+  let* (env', expr') = interpret env expr in
+  match op, expr' with
+  | Plus, number -> ok (env', number)
+  | Minus, Number (_, Int i) -> ok (env', Number (pos, Int (-i)))
+  | Minus, Number (_, Float f) -> ok (env', Number (pos, Float (-. f)))
+  | Not, (Bool (_, b)) -> ok (env', Bool (pos, not b))
+  | BitwiseNot, Number (_, Int i) -> ok (env', Number (pos, Int (lnot i)))
+  | _ -> Error.error_at pos Error.Msg.invalid_unary_op
 
 and interpret_string_concat_op env e1 e2 =
   match e1, e2 with
