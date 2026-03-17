@@ -7,7 +7,7 @@ let evaluating_fields = ref ObjectFields.empty
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
   match expr with
-  | Null _ | Bool _ | String _ | Number _ | EvaluatedObject _ -> ok (env, expr)
+  | Unit | Null _ | Bool _ | String _ | Number _ | EvaluatedObject _ -> ok (env, expr)
   | Array (pos, exprs) -> interpret_array env (pos, exprs)
   | ParsedObject (pos, entries) -> interpret_object env (pos, entries)
   | RuntimeObject (pos, obj_env, fields) -> interpret_runtime_object env (pos, obj_env, fields)
@@ -17,7 +17,6 @@ let rec interpret env expr =
   | BinOp (pos, op, e1, e2) -> interpret_bin_op env (pos, op, e1, e2)
   | UnaryOp (pos, op, expr) -> interpret_unary_op env (pos, op, expr)
   | Local (_, vars) -> interpret_local env vars
-  | Unit -> ok (env, Unit)
   | Seq exprs -> interpret_seq env exprs
   | IndexedExpr (pos, varname, index_expr) -> interpret_indexed_expr env (pos, varname, index_expr)
 
@@ -409,7 +408,7 @@ and interpret_ident env pos varname =
 
 let rec deep_eval expr =
   match expr with
-  | Null _ | Bool _ | String _ | Number _ -> ok expr
+  | Unit | Null _ | Bool _ | String _ | Number _ -> ok expr
   | Array (pos, items) ->
     let* evaluated_items = List.fold_left
       (fun acc item ->
