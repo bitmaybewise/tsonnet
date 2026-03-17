@@ -105,3 +105,13 @@
     "obj": { "a": 1, "b": 3, "c": 4 },
     "obj_member": true
   }
+
+  $ tsonnet ../../samples/tutorials/functions.jsonnet
+  {
+    "call": 12,
+    "call_inline_function": 25,
+    "call_method1": 9,
+    "call_multiline_function": [ 8, 9 ],
+    "named_params": 12,
+    "named_params2": 5
+  }
