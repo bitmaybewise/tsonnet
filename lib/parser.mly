@@ -59,6 +59,7 @@ assignable_expr:
   | op = unary_op; e = assignable_expr { UnaryOp (with_pos $startpos $endpos, op, e) }
   | e = indexed_expr { e }
   | e = obj_field_access { e }
+  | e = funcall { e }
   ;
 
 indexed_expr:
@@ -173,7 +174,23 @@ var:
   varname = ID; ASSIGN; e = assignable_expr { (varname, e) };
 
 vars:
-  LOCAL; vars = separated_nonempty_list(COMMA, var) { Local (with_pos $startpos $endpos, vars) };
+  | LOCAL; vars = separated_nonempty_list(COMMA, var) { Local (with_pos $startpos $endpos, vars) }
+  | LOCAL; def = fundef { FunctionDef (with_pos $startpos $endpos, def) }
+  ;
 
 single_var:
-  LOCAL; var_expr = var { Local (with_pos $startpos $endpos, [var_expr]) };
+  | LOCAL; var_expr = var { Local (with_pos $startpos $endpos, [var_expr]) }
+  ;
+
+fundef:
+  | fname = ID;
+    LEFT_PAREN; params = separated_nonempty_list(COMMA, ID); RIGHT_PAREN;
+    ASSIGN;
+    body = assignable_expr { (fname, params, body) }
+  ;
+
+funcall:
+  | fname = ID;
+    LEFT_PAREN; params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN
+    { FunctionCall (with_pos $startpos $endpos, fname, params) }
+  ;

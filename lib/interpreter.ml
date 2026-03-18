@@ -19,6 +19,8 @@ let rec interpret env expr =
   | Local (_, vars) -> interpret_local env vars
   | Seq exprs -> interpret_seq env exprs
   | IndexedExpr (pos, varname, index_expr) -> interpret_indexed_expr env (pos, varname, index_expr)
+  | FunctionDef (pos, def) -> interpret_function_def_expr env pos def
+  | FunctionCall (pos, fname, params) -> interpret_function_call env pos fname params
 
 and interpret_indexed_expr env (pos, varname, index_expr) =
   let* (env', index_expr') = interpret env index_expr in
@@ -405,6 +407,33 @@ and interpret_ident env pos varname =
     evaluating_fields := ObjectFields.remove varname !evaluating_fields;
     result
   end
+
+and interpret_function_def_expr env pos (fname, params, body) =
+  let env' = Env.add_local fname (FunctionDef (pos, (fname, params, body))) env in
+  ok (env', Unit)
+
+and interpret_function_call env pos fname call_params =
+  match Env.find_opt fname env with
+  | Some (FunctionDef (pos, (_, def_params, body))) ->
+    if List.compare_lengths call_params def_params <> 0
+    then Error.error_at pos "wrong number of param(s)"
+    else
+      let bindings =
+        List.mapi
+          (fun index value ->
+            let param_name = List.nth def_params index in
+            (param_name, value)
+          )
+          call_params
+      in
+      let env' = List.fold_left
+        (fun env (k, v) -> Env.add_local k v env)
+        env
+        bindings
+      in
+      interpret env' body
+  | _ ->
+    Error.error_at pos (Error.Msg.var_not_found fname)
 
 let rec deep_eval expr =
   match expr with
