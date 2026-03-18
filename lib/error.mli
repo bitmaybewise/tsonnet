@@ -25,6 +25,8 @@ module Msg : sig
   val type_non_indexable_type : string -> string
   val type_non_indexable_field : string -> string
   val type_invalid_lookup_key : string -> string
+  val type_wrong_number_of_params : int -> int -> string
+  val type_mismatch : expected:string -> got:string -> string
 
   (* Interpreter messages *)
   val interp_division_by_zero : string

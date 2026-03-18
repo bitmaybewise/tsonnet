@@ -19,8 +19,8 @@ let rec interpret env expr =
   | Local (_, vars) -> interpret_local env vars
   | Seq exprs -> interpret_seq env exprs
   | IndexedExpr (pos, varname, index_expr) -> interpret_indexed_expr env (pos, varname, index_expr)
-  | FunctionDef (pos, def) -> interpret_function_def_expr env pos def
-  | FunctionCall (pos, fname, params) -> interpret_function_call env pos fname params
+  | FunctionDef (pos, def) -> interpret_function_def env (pos, def)
+  | FunctionCall (pos, fname, params) -> interpret_function_call env (pos, fname, params)
 
 and interpret_indexed_expr env (pos, varname, index_expr) =
   let* (env', index_expr') = interpret env index_expr in
@@ -408,11 +408,11 @@ and interpret_ident env pos varname =
     result
   end
 
-and interpret_function_def_expr env pos (fname, params, body) =
+and interpret_function_def env (pos, (fname, params, body)) =
   let env' = Env.add_local fname (FunctionDef (pos, (fname, params, body))) env in
   ok (env', Unit)
 
-and interpret_function_call env pos fname call_params =
+and interpret_function_call env (pos, fname, call_params) =
   match Env.find_opt fname env with
   | Some (FunctionDef (pos, (_, def_params, body))) ->
     if List.compare_lengths call_params def_params <> 0

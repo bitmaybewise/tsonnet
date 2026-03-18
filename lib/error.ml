@@ -28,6 +28,10 @@ module Msg = struct
   let type_non_indexable_type ty = ty ^ " is a non-indexable type"
   let type_non_indexable_field field = field ^ " is a non-indexable value"
   let type_invalid_lookup_key expr = "Invalid object lookup key: " ^ expr
+  let type_wrong_number_of_params expected got =
+    Printf.sprintf "Expected %d argument(s), got %d" expected got
+  let type_mismatch ~expected ~got =
+    Printf.sprintf "Expected type %s, got %s" expected got
 
   (* Interpreter messages *)
   let interp_division_by_zero = "Division by zero"

@@ -16,6 +16,9 @@ type tsonnet_type =
   | TruntimeObject of Env.env_id * t_object_entry list
   | TobjectPtr of Env.env_id * t_object_scope
   | Lazy of expr
+  | Tunresolved
+  | TfunctionDef of (string * tsonnet_type) list (* params: name * type *) * expr (* body *) * tsonnet_type (* return *)
+  | TfunctionCall of tsonnet_type list * tsonnet_type
 and t_object_entry =
   | TobjectField of string * tsonnet_type
   | TobjectExpr of tsonnet_type
@@ -54,6 +57,17 @@ let rec to_string = function
       | TobjectTopLevel -> "$"
     in Printf.sprintf "%s (%d)" s id
   | Lazy ty -> string_of_type ty
+  | TfunctionDef (params, _, return) ->
+    Printf.sprintf "function(%s) -> %s"
+      (List.map (fun (name, ty) -> name ^ ": " ^ to_string ty) params
+      |> String.concat ", "
+      )
+      (to_string return)
+  | TfunctionCall (params_type, return) ->
+    Printf.sprintf "function(%s) -> %s"
+      (List.map to_string params_type |> String.concat ", ")
+      (to_string return)
+  | Tunresolved -> "<unresolved>"
 
 let rec collect_free_idents = function
   | Unit | Null _ | Number _ | String _ | Bool _ -> []
@@ -162,6 +176,8 @@ let rec translate venv expr =
   | BinOp (pos, op, e1, e2) -> translate_bin_op venv pos op e1 e2
   | UnaryOp (pos, op, expr) -> translate_unary_op venv (pos, op, expr)
   | IndexedExpr (pos, varname, index_expr) -> translate_indexed_expr venv (pos, varname, index_expr)
+  | FunctionDef (pos, def) -> translate_function_def venv (pos, def)
+  | FunctionCall (pos, fname, params) -> translate_function_call venv (pos, fname, params)
   | expr' ->
     error (Error.Msg.type_invalid_expr (string_of_type expr'))
 
@@ -457,6 +473,80 @@ and translate_bin_op venv pos op e1 e2 =
   | LessThanOrEqual, Tstring, Tstring -> ok (venv'', Tbool)
   | In, Tstring, (Tobject _ | Tany | TruntimeObject _ | TobjectPtr _) -> ok (venv'', Tbool)
   | _ -> Error.error_at pos Error.Msg.invalid_binary_op
+
+and translate_function_def venv (pos, (fun_name, params, body)) =
+  (* As of now, we don't know the input types at declaration *)
+  let params_typed = List.map (fun name -> (name, Tunresolved)) params in
+  (* We also don't know the result type *)
+  let fun_def = TfunctionDef (params_typed, body, Tunresolved) in
+  (* So, function declaration will have an unresolved type definition,
+     that only later it will be translated: before function call translation!
+     After first function call, concrete types are set and subsequent calls will
+     type check against the initial type assignment(s). *)
+  let venv' = Env.add_local fun_name fun_def venv in
+  ok (venv', fun_def)
+
+and translate_function_call venv (pos, fname, call_params) =
+  (* 1. retrieve TfunctionDef from venv *)
+  match Env.find_opt fname venv with
+  | Some (TfunctionDef (def_params, body_expr, return_type)) ->
+    (* check arity *)
+    if List.compare_lengths call_params def_params <> 0
+    then
+      Error.error_at pos
+        (Error.Msg.type_wrong_number_of_params
+          (List.length def_params) (List.length call_params))
+    else
+      (* 2. type check each positional parameter passed in the function call *)
+      let* (venv', resolved_params) =
+        List.fold_left2
+          (fun acc call_param (param_name, def_param_type) ->
+            let* (venv', params') = acc in
+            let* (venv'', call_param_type) = translate venv' call_param in
+            match def_param_type with
+            | Tunresolved ->
+              (* 2a. unresolved: accept and record the concrete type *)
+              ok (venv'', params' @ [(param_name, call_param_type)])
+            | expected ->
+              (* 2b. resolved: type check against the concrete type *)
+              if call_param_type = expected
+              then ok (venv'', params' @ [(param_name, expected)])
+              else Error.error_at pos
+                (Error.Msg.type_mismatch
+                  ~expected:(to_string expected)
+                  ~got:(to_string call_param_type))
+          )
+          (ok (venv, []))
+          call_params
+          def_params
+      in
+      (* 3. type check return *)
+      let body_venv = List.fold_left
+        (fun env (name, ty) -> Env.add_local name ty env)
+        venv'
+        resolved_params
+      in
+      (* translate the body with resolved param types in scope *)
+      let* (_, body_type) = translate body_venv body_expr in
+      let* resolved_return = match return_type with
+        | Tunresolved ->
+          (* 3a. first call: infer return type from body *)
+          ok body_type
+        | expected ->
+          (* 3b. subsequent calls: check body type matches *)
+          if body_type = expected
+          then ok expected
+          else Error.error_at pos
+            (Error.Msg.type_mismatch
+              ~expected:(to_string expected)
+              ~got:(to_string body_type))
+      in
+      (* 4. update env with the now-resolved function type *)
+      let resolved_fun = TfunctionDef (resolved_params, body_expr, resolved_return) in
+      let venv_with_resolved_fun = Env.add_local fname resolved_fun venv' in
+      ok (venv_with_resolved_fun, resolved_return)
+  | _ ->
+    Error.error_at pos (Error.Msg.var_not_found fname)
 
 let check (config : Config.t) expr  =
   let* _ = Scope.validate expr in
