@@ -4,6 +4,13 @@ open Syntax_sugar
 
 let evaluating_fields = ref ObjectFields.empty
 
+let with_fresh_evaluating_fields fn =
+  let saved_evaluating_fields = !evaluating_fields in
+  evaluating_fields := ObjectFields.empty;
+  let result = fn () in
+  evaluating_fields := saved_evaluating_fields;
+  result
+
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
   match expr with
@@ -401,7 +408,7 @@ and interpret_ident env pos varname =
   else begin
     evaluating_fields := ObjectFields.add varname !evaluating_fields;
     let result = Env.find_var varname env
-      ~succ:(fun env' expr -> interpret env' expr)
+      ~succ:(interpret)
       ~err:(Error.error_at pos)
     in
     evaluating_fields := ObjectFields.remove varname !evaluating_fields;
@@ -431,7 +438,10 @@ and interpret_function_call env (pos, fname, call_params) =
         env
         bindings
       in
-      interpret env' body
+      let* (_, result) = with_fresh_evaluating_fields
+        (fun () -> interpret env' body)
+      in
+      ok (env, result)
   | _ ->
     Error.error_at pos (Error.Msg.var_not_found fname)
 

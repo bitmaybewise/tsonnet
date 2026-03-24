@@ -186,7 +186,12 @@ fundef:
   | fname = ID;
     LEFT_PAREN; params = separated_nonempty_list(COMMA, ID); RIGHT_PAREN;
     ASSIGN;
-    body = assignable_expr { (fname, params, body) }
+    body = fundef_body { (fname, params, body) }
+  ;
+
+fundef_body:
+  | e = assignable_expr { e }
+  | local_bindings = vars; SEMICOLON; body = fundef_body { Seq [local_bindings; body] }
   ;
 
 funcall:
