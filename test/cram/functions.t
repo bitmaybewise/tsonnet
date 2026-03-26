@@ -3,3 +3,6 @@
 
   $ tsonnet ../../samples/functions/multiline.jsonnet
   [ 6, 7 ]
+
+  $ tsonnet ../../samples/functions/default_args.jsonnet
+  12

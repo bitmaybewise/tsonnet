@@ -90,7 +90,7 @@ type expr =
   | Local of position * (string * expr) list
   | Seq of expr list
   | IndexedExpr of position * string * expr
-  | FunctionDef of position * (string * string list * expr)
+  | FunctionDef of position * (string * (string * expr option) list * expr)
   | FunctionCall of position * string * expr list
 
 and object_entry =

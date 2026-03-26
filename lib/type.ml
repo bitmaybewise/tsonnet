@@ -475,9 +475,21 @@ and translate_bin_op venv pos op e1 e2 =
   | _ -> Error.error_at pos Error.Msg.invalid_binary_op
 
 and translate_function_def venv (pos, (fun_name, params, body)) =
-  (* As of now, we don't know the input types at declaration *)
-  let params_typed = List.map (fun name -> (name, Tunresolved)) params in
-  (* We also don't know the result type *)
+  (* For params with defaults, we can infer the type from the default expression;
+     params without defaults remain Tunresolved until the first call *)
+  let* params_typed = List.fold_left
+    (fun acc (name, default) ->
+      let* params' = acc in
+      match default with
+      | Some default_expr ->
+        let* (_, default_ty) = translate venv default_expr in
+        ok (params' @ [(name, default_ty)])
+      | None ->
+        ok (params' @ [(name, Tunresolved)])
+    )
+    (ok [])
+    params
+  in
   let fun_def = TfunctionDef (params_typed, body, Tunresolved) in
   (* So, function declaration will have an unresolved type definition,
      that only later it will be translated: before function call translation!
@@ -490,35 +502,39 @@ and translate_function_call venv (pos, fname, call_params) =
   (* 1. retrieve TfunctionDef from venv *)
   match Env.find_opt fname venv with
   | Some (TfunctionDef (def_params, body_expr, return_type)) ->
-    (* check arity *)
-    if List.compare_lengths call_params def_params <> 0
+    (* check arity: allow fewer args if defaults exist *)
+    let num_call = List.length call_params in
+    let num_def = List.length def_params in
+    if num_call > num_def
     then
       Error.error_at pos
-        (Error.Msg.type_wrong_number_of_params
-          (List.length def_params) (List.length call_params))
+        (Error.Msg.type_wrong_number_of_params num_def num_call)
     else
       (* 2. type check each positional parameter passed in the function call *)
       let* (venv', resolved_params) =
-        List.fold_left2
-          (fun acc call_param (param_name, def_param_type) ->
+        List.fold_left
+          (fun acc (index, (param_name, def_param_type)) ->
             let* (venv', params') = acc in
-            let* (venv'', call_param_type) = translate venv' call_param in
-            match def_param_type with
-            | Tunresolved ->
-              (* 2a. unresolved: accept and record the concrete type *)
-              ok (venv'', params' @ [(param_name, call_param_type)])
-            | expected ->
-              (* 2b. resolved: type check against the concrete type *)
-              if call_param_type = expected
-              then ok (venv'', params' @ [(param_name, expected)])
-              else Error.error_at pos
-                (Error.Msg.type_mismatch
-                  ~expected:(to_string expected)
-                  ~got:(to_string call_param_type))
+            if index < num_call
+            then
+              let call_param = List.nth call_params index in
+              let* (venv'', call_param_type) = translate venv' call_param in
+              match def_param_type with
+              | Tunresolved ->
+                ok (venv'', params' @ [(param_name, call_param_type)])
+              | expected ->
+                if call_param_type = expected
+                then ok (venv'', params' @ [(param_name, expected)])
+                else Error.error_at pos
+                  (Error.Msg.type_mismatch
+                    ~expected:(to_string expected)
+                    ~got:(to_string call_param_type))
+            else
+              (* default arg — resolve type from the original AST default expression *)
+              ok (venv', params' @ [(param_name, def_param_type)])
           )
           (ok (venv, []))
-          call_params
-          def_params
+          (List.mapi (fun i p -> (i, p)) def_params)
       in
       (* 3. type check return *)
       let body_venv = List.fold_left

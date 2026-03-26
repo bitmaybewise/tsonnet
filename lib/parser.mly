@@ -182,9 +182,14 @@ single_var:
   | LOCAL; var_expr = var { Local (with_pos $startpos $endpos, [var_expr]) }
   ;
 
+fundef_param:
+  | name = ID { (name, None) }
+  | name = ID; ASSIGN; default = assignable_expr { (name, Some default) }
+  ;
+
 fundef:
   | fname = ID;
-    LEFT_PAREN; params = separated_nonempty_list(COMMA, ID); RIGHT_PAREN;
+    LEFT_PAREN; params = separated_nonempty_list(COMMA, fundef_param); RIGHT_PAREN;
     ASSIGN;
     body = fundef_body { (fname, params, body) }
   ;

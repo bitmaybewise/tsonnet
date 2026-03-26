@@ -422,16 +422,30 @@ and interpret_function_def env (pos, (fname, params, body)) =
 and interpret_function_call env (pos, fname, call_params) =
   match Env.find_opt fname env with
   | Some (FunctionDef (pos, (_, def_params, body))) ->
-    if List.compare_lengths call_params def_params <> 0
+    let num_call = List.length call_params in
+    let num_def = List.length def_params in
+    let num_required =
+      List.length (
+        List.filter (fun (_, default) -> Option.is_none default) def_params
+      )
+    in
+    if num_call < num_required || num_call > num_def
     then Error.error_at pos "wrong number of param(s)"
     else
-      let bindings =
-        List.mapi
-          (fun index value ->
-            let param_name = List.nth def_params index in
-            (param_name, value)
+      let* bindings =
+        List.fold_left
+          (fun acc (index, (param_name, default)) ->
+            let* bindings = acc in
+            if index < num_call
+            then
+              ok (bindings @ [(param_name, List.nth call_params index)])
+            else
+              match default with
+              | Some default_expr -> ok (bindings @ [(param_name, default_expr)])
+              | None -> Error.error_at pos "wrong number of param(s)"
           )
-          call_params
+          (ok [])
+          (List.mapi (fun i p -> (i, p)) def_params)
       in
       let env' = List.fold_left
         (fun env (k, v) -> Env.add_local k v env)
