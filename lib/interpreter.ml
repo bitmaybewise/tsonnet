@@ -2,13 +2,13 @@ open Ast
 open Result
 open Syntax_sugar
 
-let evaluating_fields = ref ObjectFields.empty
+let evaluating_bindings = ref ObjectFields.empty
 
-let with_fresh_evaluating_fields fn =
-  let saved_evaluating_fields = !evaluating_fields in
-  evaluating_fields := ObjectFields.empty;
+let with_fresh_evaluating_bindings fn =
+  let saved_evaluating_bindings = !evaluating_bindings in
+  evaluating_bindings := ObjectFields.empty;
   let result = fn () in
-  evaluating_fields := saved_evaluating_fields;
+  evaluating_bindings := saved_evaluating_bindings;
   result
 
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
@@ -208,15 +208,15 @@ and interpret_object_field_access env (pos, scope, chain_exprs) =
       | String (pos, field) | Ident (pos, field) ->
         let* (obj_id, field_env) = get_obj_id in
         let key = Env.uniq_field_ident obj_id field in
-        if ObjectFields.mem key !evaluating_fields then
+        if ObjectFields.mem key !evaluating_bindings then
           Error.error_at pos (Error.Msg.type_cyclic_reference key)
         else begin
-          evaluating_fields := ObjectFields.add key !evaluating_fields;
+          evaluating_bindings := ObjectFields.add key !evaluating_bindings;
           let result = Env.get_obj_field field obj_id field_env
             ~succ:(interpret)
             ~err:(Error.error_at pos)
           in
-          evaluating_fields := ObjectFields.remove key !evaluating_fields;
+          evaluating_bindings := ObjectFields.remove key !evaluating_bindings;
           result
         end
       | Number _ as index_expr ->
@@ -403,15 +403,15 @@ and interpret_in_op env pos field obj =
     Error.error_at pos Error.Msg.invalid_binary_op
 
 and interpret_ident env pos varname =
-  if ObjectFields.mem varname !evaluating_fields then
+  if ObjectFields.mem varname !evaluating_bindings then
     Error.error_at pos (Error.Msg.type_cyclic_reference varname)
   else begin
-    evaluating_fields := ObjectFields.add varname !evaluating_fields;
+    evaluating_bindings := ObjectFields.add varname !evaluating_bindings;
     let result = Env.find_var varname env
       ~succ:(interpret)
       ~err:(Error.error_at pos)
     in
-    evaluating_fields := ObjectFields.remove varname !evaluating_fields;
+    evaluating_bindings := ObjectFields.remove varname !evaluating_bindings;
     result
   end
 
@@ -438,7 +438,7 @@ and interpret_function_call env (pos, fname, call_params) =
         env
         bindings
       in
-      let* (_, result) = with_fresh_evaluating_fields
+      let* (_, result) = with_fresh_evaluating_bindings
         (fun () -> interpret env' body)
       in
       ok (env, result)
