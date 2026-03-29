@@ -196,7 +196,7 @@ fundef:
   | fname = ID;
     LEFT_PAREN; params = separated_nonempty_list(COMMA, fundef_param); RIGHT_PAREN;
     ASSIGN;
-    body = fundef_body { (fname, params, body) }
+    body = fundef_body { { name = fname; params = params; body = body } }
   ;
 
 fundef_body:
@@ -207,13 +207,13 @@ fundef_body:
 funcall:
   | fname = ID;
     LEFT_PAREN; params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN
-    { FunctionCall (with_pos $startpos $endpos, fname, params) }
+    { FunctionCall (with_pos $startpos $endpos, { name = fname; params = params }) }
   ;
 
 closure:
   | FUNCTION;
     LEFT_PAREN; params = separated_nonempty_list(COMMA, fundef_param); RIGHT_PAREN;
-    body = assignable_expr { Closure (with_pos $startpos $endpos, (params, body)) }
+    body = assignable_expr { Closure (with_pos $startpos $endpos, { params = params; body = body }) }
   ;
 
 closure_call:
@@ -222,5 +222,5 @@ closure_call:
     body = assignable_expr;
     RIGHT_PAREN;
     LEFT_PAREN; call_params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN;
-    { ClosureCall (with_pos $startpos $endpos, def_params, body, call_params) }
+    { ClosureCall (with_pos $startpos $endpos, { def_params = def_params; body = body; call_params = call_params }) }
   ;

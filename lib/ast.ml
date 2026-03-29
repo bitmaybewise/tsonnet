@@ -90,10 +90,10 @@ type expr =
   | Local of position * (string * expr) list
   | Seq of expr list
   | IndexedExpr of position * string * expr
-  | FunctionDef of position * (string * (string * expr option) list * expr)
-  | FunctionCall of position * string * expr list
-  | Closure of position * ((string * expr option) list * expr)
-  | ClosureCall of position * (string * expr option) list * expr * expr list
+  | FunctionDef of position * function_def
+  | FunctionCall of position * function_call
+  | Closure of position * closure
+  | ClosureCall of position * closure_call
 
 and object_entry =
   | ObjectField of string * expr
@@ -102,6 +102,25 @@ and object_scope =
   | Self
   | TopLevel
   | ObjVarRef of string
+
+and function_def = {
+  name: string;
+  params: (string * expr option) list;
+  body: expr;
+}
+and function_call = {
+  name: string;
+  params: expr list;
+}
+and closure = {
+  params: (string * expr option) list;
+  body: expr;
+}
+and closure_call = {
+  def_params: (string * expr option) list;
+  body: expr;
+  call_params: expr list;
+}
 [@@deriving show]
 
 let dummy_expr = Unit

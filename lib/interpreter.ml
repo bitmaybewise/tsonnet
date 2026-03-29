@@ -27,9 +27,9 @@ let rec interpret env expr =
   | Seq exprs -> interpret_seq env exprs
   | IndexedExpr (pos, varname, index_expr) -> interpret_indexed_expr env (pos, varname, index_expr)
   | FunctionDef (pos, def) -> interpret_function_def env (pos, def)
-  | FunctionCall (pos, fname, params) -> interpret_function_call env (pos, fname, params)
+  | FunctionCall (pos, call) -> interpret_function_call env (pos, call)
   | Closure _ -> ok (env, expr)
-  | ClosureCall (pos, def_params, body, params) -> interpret_closure_call env (pos, def_params, body, params)
+  | ClosureCall (pos, call) -> interpret_closure_call env (pos, call)
 
 and interpret_indexed_expr env (pos, varname, index_expr) =
   let* (env', index_expr') = interpret env index_expr in
@@ -417,8 +417,8 @@ and interpret_ident env pos varname =
     result
   end
 
-and interpret_function_def env (pos, (fname, params, body)) =
-  let env' = Env.add_local fname (FunctionDef (pos, (fname, params, body))) env in
+and interpret_function_def env (pos, def) =
+  let env' = Env.add_local def.name (FunctionDef (pos, def)) env in
   ok (env', Unit)
 
 and apply_function env pos def_params body call_params =
@@ -468,16 +468,17 @@ and apply_function env pos def_params body call_params =
     in
     ok (env, result)
 
-and interpret_function_call env (pos, fname, call_params) =
-  match Env.find_opt fname env with
-  | Some (Closure (pos, (def_params, body)))
-  | Some (FunctionDef (pos, (_, def_params, body))) ->
-    apply_function env pos def_params body call_params
+and interpret_function_call env (pos, call) =
+  match Env.find_opt call.name env with
+  | Some (Closure (_, closure)) ->
+    apply_function env pos closure.params closure.body call.params
+  | Some (FunctionDef (_, def)) ->
+    apply_function env pos def.params def.body call.params
   | _ ->
-    Error.error_at pos (Error.Msg.var_not_found fname)
+    Error.error_at pos (Error.Msg.var_not_found call.name)
 
-and interpret_closure_call env (pos, def_params, body, call_params) =
-  apply_function env pos def_params body call_params
+and interpret_closure_call env (pos, call) =
+  apply_function env pos call.def_params call.body call.call_params
 
 let rec deep_eval expr =
   match expr with
