@@ -92,6 +92,8 @@ type expr =
   | IndexedExpr of position * string * expr
   | FunctionDef of position * (string * (string * expr option) list * expr)
   | FunctionCall of position * string * expr list
+  | Closure of position * ((string * expr option) list * expr)
+  | ClosureCall of position * (string * expr option) list * expr * expr list
 
 and object_entry =
   | ObjectField of string * expr

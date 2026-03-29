@@ -13,6 +13,7 @@
 %token NULL
 %token <bool> BOOL
 %token <string> STRING
+%token FUNCTION
 %token LEFT_SQR_BRACKET RIGHT_SQR_BRACKET
 %token LEFT_PAREN RIGHT_PAREN
 %token COMMA
@@ -42,11 +43,13 @@
 prog:
   | e = expr; EOF { e }
   | e = expr_seq; EOF { e }
+  | e = closure; EOF { e }
   ;
 
 expr:
   | e = assignable_expr { e }
   | e = vars { e }
+  | e = closure_call { e }
   ;
 
 expr_seq:
@@ -171,7 +174,9 @@ obj_field_access:
   ;
 
 var:
-  varname = ID; ASSIGN; e = assignable_expr { (varname, e) };
+  | varname = ID; ASSIGN; e = assignable_expr { (varname, e) }
+  | varname = ID; ASSIGN; e = closure { (varname, e) }
+  ;
 
 vars:
   | LOCAL; vars = separated_nonempty_list(COMMA, var) { Local (with_pos $startpos $endpos, vars) }
@@ -203,4 +208,19 @@ funcall:
   | fname = ID;
     LEFT_PAREN; params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN
     { FunctionCall (with_pos $startpos $endpos, fname, params) }
+  ;
+
+closure:
+  | FUNCTION;
+    LEFT_PAREN; params = separated_nonempty_list(COMMA, fundef_param); RIGHT_PAREN;
+    body = assignable_expr { Closure (with_pos $startpos $endpos, (params, body)) }
+  ;
+
+closure_call:
+  | LEFT_PAREN; FUNCTION;
+    LEFT_PAREN; def_params = separated_nonempty_list(COMMA, fundef_param); RIGHT_PAREN;
+    body = assignable_expr;
+    RIGHT_PAREN;
+    LEFT_PAREN; call_params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN;
+    { ClosureCall (with_pos $startpos $endpos, def_params, body, call_params) }
   ;

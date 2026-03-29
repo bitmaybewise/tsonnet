@@ -25,7 +25,6 @@ module Msg : sig
   val type_non_indexable_type : string -> string
   val type_non_indexable_field : string -> string
   val type_invalid_lookup_key : string -> string
-  val type_wrong_number_of_params : int -> int -> string
   val type_mismatch : expected:string -> got:string -> string
 
   (* Interpreter messages *)
@@ -36,6 +35,7 @@ module Msg : sig
 
   (* Other messages *)
   val value_not_represetable_as_json : string -> string
+  val wrong_number_of_params : int -> int -> string
 end
 
 val error_at : Ast.position -> string -> ('a, string) result

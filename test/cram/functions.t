@@ -6,3 +6,6 @@
 
   $ tsonnet ../../samples/functions/default_args.jsonnet
   12
+
+  $ tsonnet ../../samples/functions/closure.jsonnet
+  25

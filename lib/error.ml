@@ -28,8 +28,6 @@ module Msg = struct
   let type_non_indexable_type ty = ty ^ " is a non-indexable type"
   let type_non_indexable_field field = field ^ " is a non-indexable value"
   let type_invalid_lookup_key expr = "Invalid object lookup key: " ^ expr
-  let type_wrong_number_of_params expected got =
-    Printf.sprintf "Expected %d argument(s), got %d" expected got
   let type_mismatch ~expected ~got =
     Printf.sprintf "Expected type %s, got %s" expected got
 
@@ -41,6 +39,8 @@ module Msg = struct
 
   (* Others messages *)
   let value_not_represetable_as_json value = "value type not representable as JSON: " ^ value
+  let wrong_number_of_params expected got =
+    Printf.sprintf "Expected %d argument(s), got %d" expected got
 end
 
 let enumerate_error_lines filename position ~highlight_error =

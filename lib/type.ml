@@ -19,6 +19,8 @@ type tsonnet_type =
   | Tunresolved
   | TfunctionDef of (string * tsonnet_type) list (* params: name * type *) * expr (* body *) * tsonnet_type (* return *)
   | TfunctionCall of tsonnet_type list * tsonnet_type
+  | Tclosure of (string * tsonnet_type) list * expr
+  | TclosureCall of tsonnet_type list * tsonnet_type
 and t_object_entry =
   | TobjectField of string * tsonnet_type
   | TobjectExpr of tsonnet_type
@@ -67,6 +69,15 @@ let rec to_string = function
     Printf.sprintf "function(%s) -> %s"
       (List.map to_string params_type |> String.concat ", ")
       (to_string return)
+  | Tclosure (params, _) ->
+    Printf.sprintf "function(%s)"
+      (List.map (fun (name, ty) -> name ^ ": " ^ to_string ty) params
+      |> String.concat ", "
+      )
+  | TclosureCall (params_type, return) ->
+    Printf.sprintf "function(%s) -> %s"
+      (List.map to_string params_type |> String.concat ", ")
+      (to_string return)
   | Tunresolved -> "<unresolved>"
 
 let rec collect_free_idents = function
@@ -84,6 +95,10 @@ let rec collect_free_idents = function
   | ObjectFieldAccess (_, _, exprs) -> List.concat_map collect_free_idents exprs
   | IndexedExpr (_, name, e) -> name :: collect_free_idents e
   | Local (_, vars) -> List.concat_map (fun (_, e) -> collect_free_idents e) vars
+  | FunctionCall (_, name, args) -> name :: List.concat_map collect_free_idents args
+  | Closure (_, (_, body)) -> collect_free_idents body
+  | ClosureCall (_, _, body, args) ->
+    collect_free_idents body @ List.concat_map collect_free_idents args
   | _ -> []
 
 let reachable_bindings bindings initial_idents =
@@ -178,6 +193,9 @@ let rec translate venv expr =
   | IndexedExpr (pos, varname, index_expr) -> translate_indexed_expr venv (pos, varname, index_expr)
   | FunctionDef (pos, def) -> translate_function_def venv (pos, def)
   | FunctionCall (pos, fname, params) -> translate_function_call venv (pos, fname, params)
+  | Closure (pos, (params, body)) -> translate_closure venv (pos, params, body)
+  | ClosureCall (pos, def_params, body, call_params) ->
+    translate_closure_call venv (pos, def_params, body, call_params)
   | expr' ->
     error (Error.Msg.type_invalid_expr (string_of_type expr'))
 
@@ -472,6 +490,7 @@ and translate_bin_op venv pos op e1 e2 =
   | LessThan, Tstring, Tstring -> ok (venv'', Tbool)
   | LessThanOrEqual, Tstring, Tstring -> ok (venv'', Tbool)
   | In, Tstring, (Tobject _ | Tany | TruntimeObject _ | TobjectPtr _) -> ok (venv'', Tbool)
+  | _, Tany, _ | _, _, Tany -> ok (venv'', Tany)
   | _ -> Error.error_at pos Error.Msg.invalid_binary_op
 
 and translate_function_def venv (pos, (fun_name, params, body)) =
@@ -508,7 +527,7 @@ and translate_function_call venv (pos, fname, call_params) =
     if num_call > num_def
     then
       Error.error_at pos
-        (Error.Msg.type_wrong_number_of_params num_def num_call)
+        (Error.Msg.wrong_number_of_params num_def num_call)
     else
       (* 2. type check each positional parameter passed in the function call *)
       let* (venv', resolved_params) =
@@ -561,8 +580,69 @@ and translate_function_call venv (pos, fname, call_params) =
       let resolved_fun = TfunctionDef (resolved_params, body_expr, resolved_return) in
       let venv_with_resolved_fun = Env.add_local fname resolved_fun venv' in
       ok (venv_with_resolved_fun, resolved_return)
+  | Some (Lazy expr) ->
+    let* (venv', resolved) = translate venv expr in
+    (* Re-dispatch with the resolved type *)
+    let venv'' = Env.add_local fname resolved venv' in
+    translate_function_call venv'' (pos, fname, call_params)
+  | Some (Tclosure (def_params, body_expr)) ->
+    translate_closure_call venv (pos, 
+      List.map (fun (name, _ty) -> (name, None)) def_params,
+      body_expr, call_params)
   | _ ->
     Error.error_at pos (Error.Msg.var_not_found fname)
+
+and translate_closure venv (_pos, params, body) =
+  let* params_typed = List.fold_left
+    (fun acc (name, default) ->
+      let* params' = acc in
+      match default with
+      | Some default_expr ->
+        let* (_, default_ty) = translate venv default_expr in
+        ok (params' @ [(name, default_ty)])
+      | None ->
+        ok (params' @ [(name, Tunresolved)])
+    )
+    (ok [])
+    params
+  in
+  ok (venv, Tclosure (params_typed, body))
+
+and translate_closure_call venv (pos, def_params, body_expr, call_params) =
+  let num_call = List.length call_params in
+  let num_def = List.length def_params in
+  let num_required =
+    List.length (List.filter (fun (_, default) -> Option.is_none default) def_params)
+  in
+  if num_call < num_required || num_call > num_def
+  then Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_call)
+  else
+    let* (venv', resolved_params) =
+      List.fold_left
+        (fun acc (index, (param_name, default)) ->
+          let* (venv', params') = acc in
+          if index < num_call
+          then
+            let call_param = List.nth call_params index in
+            let* (venv'', call_param_type) = translate venv' call_param in
+            ok (venv'', params' @ [(param_name, call_param_type)])
+          else
+            match default with
+            | Some default_expr ->
+              let* (venv'', default_type) = translate venv' default_expr in
+              ok (venv'', params' @ [(param_name, default_type)])
+            | None -> Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_call)
+        )
+        (ok (venv, []))
+        (List.mapi (fun i p -> (i, p)) def_params)
+    in
+    let body_venv = List.fold_left
+      (fun env (name, ty) -> Env.add_local name ty env)
+      venv'
+      resolved_params
+    in
+    let* (_, body_type) = translate body_venv body_expr in
+    ok (venv, body_type)
 
 let check (config : Config.t) expr  =
   let* _ = Scope.validate expr in

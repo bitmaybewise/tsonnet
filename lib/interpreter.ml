@@ -28,6 +28,8 @@ let rec interpret env expr =
   | IndexedExpr (pos, varname, index_expr) -> interpret_indexed_expr env (pos, varname, index_expr)
   | FunctionDef (pos, def) -> interpret_function_def env (pos, def)
   | FunctionCall (pos, fname, params) -> interpret_function_call env (pos, fname, params)
+  | Closure _ -> ok (env, expr)
+  | ClosureCall (pos, def_params, body, params) -> interpret_closure_call env (pos, def_params, body, params)
 
 and interpret_indexed_expr env (pos, varname, index_expr) =
   let* (env', index_expr') = interpret env index_expr in
@@ -419,45 +421,63 @@ and interpret_function_def env (pos, (fname, params, body)) =
   let env' = Env.add_local fname (FunctionDef (pos, (fname, params, body))) env in
   ok (env', Unit)
 
+and apply_function env pos def_params body call_params =
+  let num_call = List.length call_params in
+  let num_def = List.length def_params in
+  let num_required =
+    List.length (
+      List.filter (fun (_, default) -> Option.is_none default) def_params
+    )
+  in
+  if num_call < num_required || num_call > num_def
+  then
+    Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_call)
+  else
+    let* evaluated_call_params =
+      List.fold_left
+        (fun acc param ->
+          let* params = acc in
+          let* (_, v) = interpret env param in
+          ok (params @ [v])
+        )
+        (ok [])
+        call_params
+    in
+    let* bindings =
+      List.fold_left
+        (fun acc (index, (param_name, default)) ->
+          let* bindings = acc in
+          if index < num_call
+          then
+            ok (bindings @ [(param_name, List.nth evaluated_call_params index)])
+          else
+            match default with
+            | Some default_expr -> ok (bindings @ [(param_name, default_expr)])
+            | None -> Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_call)
+        )
+        (ok [])
+        (List.mapi (fun i p -> (i, p)) def_params)
+    in
+    let env' = List.fold_left
+      (fun env (k, v) -> Env.add_local k v env)
+      env
+      bindings
+    in
+    let* (_, result) = with_fresh_evaluating_bindings
+      (fun () -> interpret env' body)
+    in
+    ok (env, result)
+
 and interpret_function_call env (pos, fname, call_params) =
   match Env.find_opt fname env with
+  | Some (Closure (pos, (def_params, body)))
   | Some (FunctionDef (pos, (_, def_params, body))) ->
-    let num_call = List.length call_params in
-    let num_def = List.length def_params in
-    let num_required =
-      List.length (
-        List.filter (fun (_, default) -> Option.is_none default) def_params
-      )
-    in
-    if num_call < num_required || num_call > num_def
-    then Error.error_at pos "wrong number of param(s)"
-    else
-      let* bindings =
-        List.fold_left
-          (fun acc (index, (param_name, default)) ->
-            let* bindings = acc in
-            if index < num_call
-            then
-              ok (bindings @ [(param_name, List.nth call_params index)])
-            else
-              match default with
-              | Some default_expr -> ok (bindings @ [(param_name, default_expr)])
-              | None -> Error.error_at pos "wrong number of param(s)"
-          )
-          (ok [])
-          (List.mapi (fun i p -> (i, p)) def_params)
-      in
-      let env' = List.fold_left
-        (fun env (k, v) -> Env.add_local k v env)
-        env
-        bindings
-      in
-      let* (_, result) = with_fresh_evaluating_bindings
-        (fun () -> interpret env' body)
-      in
-      ok (env, result)
+    apply_function env pos def_params body call_params
   | _ ->
     Error.error_at pos (Error.Msg.var_not_found fname)
+
+and interpret_closure_call env (pos, def_params, body, call_params) =
+  apply_function env pos def_params body call_params
 
 let rec deep_eval expr =
   match expr with
