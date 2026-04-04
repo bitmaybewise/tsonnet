@@ -22,6 +22,7 @@
 %token DOT
 %token SELF TOP_LEVEL_OBJ
 %token PLUS MINUS MULTIPLY DIVIDE MODULO
+%nonassoc FUNCTION
 %left PLUS MINUS
 %left MULTIPLY DIVIDE MODULO
 %token <string> ID
@@ -43,13 +44,11 @@
 prog:
   | e = expr; EOF { e }
   | e = expr_seq; EOF { e }
-  | e = closure; EOF { e }
   ;
 
 expr:
   | e = assignable_expr { e }
   | e = vars { e }
-  | e = closure_call { e }
   ;
 
 expr_seq:
@@ -63,6 +62,7 @@ assignable_expr:
   | e = indexed_expr { e }
   | e = obj_field_access { e }
   | e = funcall { e }
+  | e = closure { e }
   ;
 
 indexed_expr:
@@ -175,7 +175,6 @@ obj_field_access:
 
 var:
   | varname = ID; ASSIGN; e = assignable_expr { (varname, e) }
-  | varname = ID; ASSIGN; e = closure { (varname, e) }
   ;
 
 vars:
@@ -207,20 +206,23 @@ fundef_body:
 funcall:
   | fname = ID;
     LEFT_PAREN; params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN
-    { FunctionCall (with_pos $startpos $endpos, { name = fname; params = params }) }
+    { FunctionCall
+      (with_pos $startpos $endpos, {
+        callee = Ident (with_pos $startpos(fname) $endpos(fname), fname);
+        args = params;
+      })
+    }
+  | callee = scoped_expr;
+    LEFT_PAREN; params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN
+    { FunctionCall (with_pos $startpos $endpos, { callee = callee; args = params }) }
   ;
 
 closure:
   | FUNCTION;
     LEFT_PAREN; params = separated_nonempty_list(COMMA, fundef_param); RIGHT_PAREN;
-    body = assignable_expr { Closure (with_pos $startpos $endpos, { params = params; body = body }) }
-  ;
-
-closure_call:
-  | LEFT_PAREN; FUNCTION;
-    LEFT_PAREN; def_params = separated_nonempty_list(COMMA, fundef_param); RIGHT_PAREN;
-    body = assignable_expr;
-    RIGHT_PAREN;
-    LEFT_PAREN; call_params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN;
-    { ClosureCall (with_pos $startpos $endpos, { def_params = def_params; body = body; call_params = call_params }) }
+    body = assignable_expr {
+      Closure (with_pos $startpos $endpos, { params = params; body = body })
+    }
+    (* precedence here will transform "function(x) x * x" into "function(x) (x * x)" *)
+    %prec FUNCTION
   ;

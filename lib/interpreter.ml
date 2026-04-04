@@ -29,7 +29,6 @@ let rec interpret env expr =
   | FunctionDef (pos, def) -> interpret_function_def env (pos, def)
   | FunctionCall (pos, call) -> interpret_function_call env (pos, call)
   | Closure _ -> ok (env, expr)
-  | ClosureCall (pos, call) -> interpret_closure_call env (pos, call)
 
 and interpret_indexed_expr env (pos, varname, index_expr) =
   let* (env', index_expr') = interpret env index_expr in
@@ -469,16 +468,22 @@ and apply_function env pos def_params body call_params =
     ok (env, result)
 
 and interpret_function_call env (pos, call) =
-  match Env.find_opt call.name env with
-  | Some (Closure (_, closure)) ->
-    apply_function env pos closure.params closure.body call.params
-  | Some (FunctionDef (_, def)) ->
-    apply_function env pos def.params def.body call.params
+  let* (env', callee_val) =
+    match call.callee with
+    | Ident (pos, name) ->
+      (match Env.find_opt name env with
+      | Some expr -> ok (env, expr)
+      | None -> Error.error_at pos (Error.Msg.var_not_found name)
+      )
+    | _ -> interpret env call.callee
+  in
+  match callee_val with
+  | Closure (_, closure) ->
+    apply_function env' pos closure.params closure.body call.args
+  | FunctionDef (_, def) ->
+    apply_function env' pos def.params def.body call.args
   | _ ->
-    Error.error_at pos (Error.Msg.var_not_found call.name)
-
-and interpret_closure_call env (pos, call) =
-  apply_function env pos call.def_params call.body call.call_params
+    Error.error_at pos (Error.Msg.var_not_found (string_of_type call.callee))
 
 let rec deep_eval expr =
   match expr with

@@ -93,7 +93,6 @@ type expr =
   | FunctionDef of position * function_def
   | FunctionCall of position * function_call
   | Closure of position * closure
-  | ClosureCall of position * closure_call
 
 and object_entry =
   | ObjectField of string * expr
@@ -109,17 +108,12 @@ and function_def = {
   body: expr;
 }
 and function_call = {
-  name: string;
-  params: expr list;
+  callee: expr;
+  args: expr list;
 }
 and closure = {
   params: (string * expr option) list;
   body: expr;
-}
-and closure_call = {
-  def_params: (string * expr option) list;
-  body: expr;
-  call_params: expr list;
 }
 [@@deriving show]
 

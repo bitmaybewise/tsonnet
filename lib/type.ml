@@ -20,7 +20,6 @@ type tsonnet_type =
   | TfunctionDef of t_function_def
   | TfunctionCall of t_function_call
   | Tclosure of t_closure
-  | TclosureCall of t_closure_call
 
 and t_object_entry =
   | TobjectField of string * tsonnet_type
@@ -41,10 +40,6 @@ and t_function_call = {
 and t_closure = {
   params: (string * tsonnet_type) list;
   body: expr;
-}
-and t_closure_call = {
-  params: tsonnet_type list;
-  return: tsonnet_type;
 }
 
 let rec to_string = function
@@ -93,10 +88,6 @@ let rec to_string = function
       (List.map (fun (name, ty) -> name ^ ": " ^ to_string ty) params
       |> String.concat ", "
       )
-  | TclosureCall {params=params_type; return} ->
-    Printf.sprintf "function(%s) -> %s"
-      (List.map to_string params_type |> String.concat ", ")
-      (to_string return)
   | Tunresolved -> "<unresolved>"
 
 let rec collect_free_idents = function
@@ -115,11 +106,8 @@ let rec collect_free_idents = function
   | IndexedExpr (_, name, e) -> name :: collect_free_idents e
   | Local (_, vars) -> List.concat_map (fun (_, e) -> collect_free_idents e) vars
   | FunctionCall (_, call) ->
-    call.name :: List.concat_map collect_free_idents call.params
+    collect_free_idents call.callee @ List.concat_map collect_free_idents call.args
   | Closure (_, closure) -> collect_free_idents closure.body
-  | ClosureCall (_, closure_call) ->
-    collect_free_idents closure_call.body
-    @ List.concat_map collect_free_idents closure_call.call_params
   | _ -> []
 
 let reachable_bindings bindings initial_idents =
@@ -215,8 +203,6 @@ let rec translate venv expr =
   | FunctionDef (pos, def) -> translate_function_def venv (pos, def)
   | FunctionCall (pos, call) -> translate_function_call venv (pos, call)
   | Closure (pos, closure) -> translate_closure venv (pos, closure)
-  | ClosureCall (pos, closure_call) ->
-    translate_closure_call venv (pos, closure_call)
   | expr' ->
     error (Error.Msg.type_invalid_expr (string_of_type expr'))
 
@@ -544,28 +530,41 @@ and translate_function_def venv (pos, def) =
   ok (venv', fun_def)
 
 and translate_function_call venv (pos, call) =
-  (* 1. retrieve TfunctionDef from venv *)
-  match Env.find_opt call.name venv with
+  match call.callee with
+  | Ident (_, name) ->
+    translate_named_function_call venv (pos, name, call.args)
+  | Closure (_, closure) ->
+    translate_closure_call venv (pos, closure.params, closure.body, call.args)
+  | _ ->
+    let* (venv', callee_ty) = translate venv call.callee in
+    (match callee_ty with
+    | Tclosure { params = closure_params; body = body_expr } ->
+      let def_params = List.map (fun (name, _ty) -> (name, None)) closure_params in
+      translate_closure_call venv' (pos, def_params, body_expr, call.args)
+    | _ ->
+      Error.error_at pos (Error.Msg.type_invalid_expr (string_of_type call.callee))
+    )
+
+and translate_named_function_call venv (pos, name, args) =
+  match Env.find_opt name venv with
   | Some (TfunctionDef { params = def_params;
                          body = body_expr;
                          return = return_type;
                        }) ->
-    (* check arity: allow fewer args if defaults exist *)
-    let num_call = List.length call.params in
+    let num_call = List.length args in
     let num_def = List.length def_params in
     if num_call > num_def
     then
       Error.error_at pos
         (Error.Msg.wrong_number_of_params num_def num_call)
     else
-      (* 2. type check each positional parameter passed in the function call *)
       let* (venv', resolved_params) =
         List.fold_left
           (fun acc (index, (param_name, def_param_type)) ->
             let* (venv', params') = acc in
             if index < num_call
             then
-              let call_param = List.nth call.params index in
+              let call_param = List.nth args index in
               let* (venv'', call_param_type) = translate venv' call_param in
               match def_param_type with
               | Tunresolved ->
@@ -578,27 +577,22 @@ and translate_function_call venv (pos, call) =
                     ~expected:(to_string expected)
                     ~got:(to_string call_param_type))
             else
-              (* default arg — resolve type from the original AST default expression *)
               ok (venv', params' @ [(param_name, def_param_type)])
           )
           (ok (venv, []))
           (List.mapi (fun i p -> (i, p)) def_params)
       in
-      (* 3. type check return *)
       let body_venv = List.fold_left
         (fun env (name, ty) -> Env.add_local name ty env)
         venv'
         resolved_params
       in
-      (* translate the body with resolved param types in scope *)
       let* (_, body_type) = translate body_venv body_expr in
       let* resolved_return =
         match return_type with
         | Tunresolved ->
-          (* 3a. first call: infer return type from body *)
           ok body_type
         | expected ->
-          (* 3b. subsequent calls: check body type matches *)
           if body_type = expected
           then ok expected
           else Error.error_at pos
@@ -606,7 +600,6 @@ and translate_function_call venv (pos, call) =
               ~expected:(to_string expected)
               ~got:(to_string body_type))
       in
-      (* 4. update env with the now-resolved function type *)
       let resolved_fun =
         TfunctionDef {
           params = resolved_params;
@@ -614,23 +607,17 @@ and translate_function_call venv (pos, call) =
           return = resolved_return;
         }
       in
-      let venv_with_resolved_fun = Env.add_local call.name resolved_fun venv' in
+      let venv_with_resolved_fun = Env.add_local name resolved_fun venv' in
       ok (venv_with_resolved_fun, resolved_return)
   | Some (Lazy expr) ->
     let* (venv', resolved) = translate venv expr in
-    (* Re-dispatch with the resolved type *)
-    let venv'' = Env.add_local call.name resolved venv' in
-    translate_function_call venv'' (pos, call)
+    let venv'' = Env.add_local name resolved venv' in
+    translate_named_function_call venv'' (pos, name, args)
   | Some (Tclosure { params = closure_params; body = body_expr }) ->
-    translate_closure_call
-      venv
-      (pos,
-      { def_params = List.map (fun (name, _ty) -> (name, None)) closure_params;
-        body = body_expr;
-        call_params = call.params;
-      })
+    let def_params = List.map (fun (name, _ty) -> (name, None)) closure_params in
+    translate_closure_call venv (pos, def_params, body_expr, args)
   | _ ->
-    Error.error_at pos (Error.Msg.var_not_found call.name)
+    Error.error_at pos (Error.Msg.var_not_found name)
 
 and translate_closure venv (_pos, closure) =
   let* params_typed = List.fold_left
@@ -648,11 +635,11 @@ and translate_closure venv (_pos, closure) =
   in
   ok (venv, Tclosure { params = params_typed; body = closure.body })
 
-and translate_closure_call venv (pos, call) =
-  let num_call = List.length call.call_params in
-  let num_def = List.length call.def_params in
+and translate_closure_call venv (pos, def_params, body, call_params) =
+  let num_call = List.length call_params in
+  let num_def = List.length def_params in
   let num_required =
-    List.length (List.filter (fun (_, default) -> Option.is_none default) call.def_params)
+    List.length (List.filter (fun (_, default) -> Option.is_none default) def_params)
   in
   if num_call < num_required || num_call > num_def
   then Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_call)
@@ -663,7 +650,7 @@ and translate_closure_call venv (pos, call) =
           let* (venv', params') = acc in
           if index < num_call
           then
-            let call_param = List.nth call.call_params index in
+            let call_param = List.nth call_params index in
             let* (venv'', call_param_type) = translate venv' call_param in
             ok (venv'', params' @ [(param_name, call_param_type)])
           else
@@ -674,14 +661,14 @@ and translate_closure_call venv (pos, call) =
             | None -> Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_call)
         )
         (ok (venv, []))
-        (List.mapi (fun i p -> (i, p)) call.def_params)
+        (List.mapi (fun i p -> (i, p)) def_params)
     in
     let body_venv = List.fold_left
       (fun env (name, ty) -> Env.add_local name ty env)
       venv'
       resolved_params
     in
-    let* (_, body_type) = translate body_venv call.body in
+    let* (_, body_type) = translate body_venv body in
     ok (venv, body_type)
 
 let check (config : Config.t) expr  =
