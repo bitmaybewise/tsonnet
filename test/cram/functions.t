@@ -10,5 +10,8 @@
   $ tsonnet ../../samples/functions/closure.jsonnet
   25
 
+  $ tsonnet ../../samples/functions/named_params.jsonnet
+  5
+
   $ tsonnet ../../samples/functions/method.jsonnet
   4

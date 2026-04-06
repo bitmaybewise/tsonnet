@@ -107,9 +107,12 @@ and function_def = {
   params: (string * expr option) list;
   body: expr;
 }
+and call_arg =
+  | Positional of expr
+  | Named of string * expr
 and function_call = {
   callee: expr;
-  args: expr list;
+  args: call_arg list;
 }
 and closure = {
   params: (string * expr option) list;

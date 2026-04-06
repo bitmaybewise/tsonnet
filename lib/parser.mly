@@ -211,9 +211,14 @@ fundef_body:
   | local_bindings = vars; SEMICOLON; body = fundef_body { Seq [local_bindings; body] }
   ;
 
+funcall_arg:
+  | name = ID; ASSIGN; e = assignable_expr { Named (name, e) }
+  | e = assignable_expr { Positional e }
+  ;
+
 funcall:
   | fname = ID;
-    LEFT_PAREN; params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN
+    LEFT_PAREN; params = separated_nonempty_list(COMMA, funcall_arg); RIGHT_PAREN
     { FunctionCall
       (with_pos $startpos $endpos, {
         callee = Ident (with_pos $startpos(fname) $endpos(fname), fname);
@@ -221,10 +226,10 @@ funcall:
       })
     }
   | callee = scoped_expr;
-    LEFT_PAREN; params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN
+    LEFT_PAREN; params = separated_nonempty_list(COMMA, funcall_arg); RIGHT_PAREN
     { FunctionCall (with_pos $startpos $endpos, { callee = callee; args = params }) }
   | callee = obj_field_access;
-    LEFT_PAREN; params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN
+    LEFT_PAREN; params = separated_nonempty_list(COMMA, funcall_arg); RIGHT_PAREN
     { FunctionCall (with_pos $startpos $endpos, { callee = callee; args = params }) }
   ;
 

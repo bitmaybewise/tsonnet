@@ -111,7 +111,10 @@ let rec collect_free_idents = function
   | IndexedExpr (_, name, e) -> name :: collect_free_idents e
   | Local (_, vars) -> List.concat_map (fun (_, e) -> collect_free_idents e) vars
   | FunctionCall (_, call) ->
-    collect_free_idents call.callee @ List.concat_map collect_free_idents call.args
+    collect_free_idents call.callee @ List.concat_map (function
+      | Positional e -> collect_free_idents e
+      | Named (_, e) -> collect_free_idents e
+    ) call.args
   | Closure (_, closure) -> collect_free_idents closure.body
   | _ -> []
 
@@ -551,27 +554,38 @@ and translate_function_call venv (pos, call) =
     )
 
 and translate_named_function_call venv (pos, name, args) =
+  let positional_args =
+    List.filter_map (function Positional e -> Some e | Named _ -> None) args
+  in
+  let named_args =
+    List.filter_map (function Named (n, e) -> Some (n, e) | Positional _ -> None) args
+  in
+  let num_positional = List.length positional_args in
   match Env.find_opt name venv with
   | Some (TfunctionDef { params = def_params;
-                         body = body_expr;
-                         return = return_type;
-                       }) ->
-    let num_call = List.length args in
+                          body = body_expr;
+                          return = return_type;
+                        }) ->
     let num_def = List.length def_params in
-    if num_call > num_def
+    let num_provided = num_positional + List.length named_args in
+    if num_provided > num_def
     then
       Error.error_at pos
-        (Error.Msg.wrong_number_of_params num_def num_call)
+        (Error.Msg.wrong_number_of_params num_def num_provided)
     else
       let* (venv', resolved_params) =
         List.fold_left
           (fun acc (index, (param_name, def_param_type)) ->
             let* (venv', params') = acc in
-            if index < num_call
-            then
-              let call_param = List.nth args index in
+            let call_expr_opt =
+              if index < num_positional
+              then Some (List.nth positional_args index)
+              else Option.map snd (List.find_opt (fun (n, _) -> n = param_name) named_args)
+            in
+            match call_expr_opt with
+            | Some call_param ->
               let* (venv'', call_param_type) = translate venv' call_param in
-              match def_param_type with
+              (match def_param_type with
               | Tunresolved ->
                 ok (venv'', params' @ [(param_name, call_param_type)])
               | expected ->
@@ -581,7 +595,8 @@ and translate_named_function_call venv (pos, name, args) =
                   (Error.Msg.type_mismatch
                     ~expected:(to_string expected)
                     ~got:(to_string call_param_type))
-            else
+              )
+            | None ->
               ok (venv', params' @ [(param_name, def_param_type)])
           )
           (ok (venv, []))
@@ -640,30 +655,43 @@ and translate_closure venv (_pos, closure) =
   in
   ok (venv, Tclosure { params = params_typed; body = closure.body })
 
-and translate_closure_call venv (pos, def_params, body, call_params) =
-  let num_call = List.length call_params in
+and translate_closure_call venv (pos, def_params, body, call_args) =
+  let positional_args =
+    List.filter_map (function Positional e -> Some e | Named _ -> None) call_args
+  in
+  let named_args =
+    List.filter_map (function Named (n, e) -> Some (n, e) | Positional _ -> None) call_args
+  in
+  let num_positional = List.length positional_args in
   let num_def = List.length def_params in
   let num_required =
     List.length (List.filter (fun (_, default) -> Option.is_none default) def_params)
   in
-  if num_call < num_required || num_call > num_def
-  then Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_call)
+  let num_provided = num_positional + List.length named_args in
+  if num_provided < num_required || num_provided > num_def
+  then Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_provided)
   else
     let* (venv', resolved_params) =
       List.fold_left
         (fun acc (index, (param_name, default)) ->
           let* (venv', params') = acc in
-          if index < num_call
-          then
-            let call_param = List.nth call_params index in
+          let call_expr_opt =
+            if index < num_positional
+            then Some (List.nth positional_args index)
+            else Option.map snd (List.find_opt (fun (n, _) -> n = param_name) named_args)
+          in
+          match call_expr_opt with
+          | Some call_param ->
             let* (venv'', call_param_type) = translate venv' call_param in
             ok (venv'', params' @ [(param_name, call_param_type)])
-          else
-            match default with
+          | None ->
+            (match default with
             | Some default_expr ->
               let* (venv'', default_type) = translate venv' default_expr in
               ok (venv'', params' @ [(param_name, default_type)])
-            | None -> Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_call)
+            | None ->
+              Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_provided)
+            )
         )
         (ok (venv, []))
         (List.mapi (fun i p -> (i, p)) def_params)

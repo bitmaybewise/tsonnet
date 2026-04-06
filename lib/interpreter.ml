@@ -420,19 +420,26 @@ and interpret_function_def env (pos, def) =
   let env' = Env.add_local def.name (FunctionDef (pos, def)) env in
   ok (env', Unit)
 
-and apply_function env pos def_params body call_params =
-  let num_call = List.length call_params in
+and apply_function env pos def_params body call_args =
+  let positional_args =
+    List.filter_map (function Positional e -> Some e | Named _ -> None) call_args
+  in
+  let named_args =
+    List.filter_map (function Named (n, e) -> Some (n, e) | Positional _ -> None) call_args
+  in
+  let num_positional = List.length positional_args in
   let num_def = List.length def_params in
   let num_required =
     List.length (
       List.filter (fun (_, default) -> Option.is_none default) def_params
     )
   in
-  if num_call < num_required || num_call > num_def
+  let num_provided = num_positional + List.length named_args in
+  if num_provided < num_required || num_provided > num_def
   then
-    Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_call)
+    Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_provided)
   else
-    let* evaluated_call_params =
+    let* evaluated_positional =
       List.fold_left
         (fun acc param ->
           let* params = acc in
@@ -440,19 +447,32 @@ and apply_function env pos def_params body call_params =
           ok (params @ [v])
         )
         (ok [])
-        call_params
+        positional_args
+    in
+    let* evaluated_named =
+      List.fold_left
+        (fun acc (name, expr) ->
+          let* params = acc in
+          let* (_, v) = interpret env expr in
+          ok (params @ [(name, v)])
+        )
+        (ok [])
+        named_args
     in
     let* bindings =
       List.fold_left
         (fun acc (index, (param_name, default)) ->
           let* bindings = acc in
-          if index < num_call
+          if index < num_positional
           then
-            ok (bindings @ [(param_name, List.nth evaluated_call_params index)])
+            ok (bindings @ [(param_name, List.nth evaluated_positional index)])
           else
-            match default with
-            | Some default_expr -> ok (bindings @ [(param_name, default_expr)])
-            | None -> Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_call)
+            match List.assoc_opt param_name evaluated_named with
+            | Some v -> ok (bindings @ [(param_name, v)])
+            | None ->
+              match default with
+              | Some default_expr -> ok (bindings @ [(param_name, default_expr)])
+              | None -> Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_provided)
         )
         (ok [])
         (List.mapi (fun i p -> (i, p)) def_params)
