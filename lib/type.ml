@@ -102,7 +102,12 @@ let rec collect_free_idents = function
       | ObjectField (_, e) -> collect_free_idents e
       | ObjectExpr e -> collect_free_idents e
     ) entries
-  | ObjectFieldAccess (_, _, exprs) -> List.concat_map collect_free_idents exprs
+  | ObjectFieldAccess (_, scope, exprs) ->
+    let scope_idents = match scope with
+      | ObjVarRef name -> [name]
+      | Self | TopLevel -> []
+    in
+    scope_idents @ List.concat_map collect_free_idents exprs
   | IndexedExpr (_, name, e) -> name :: collect_free_idents e
   | Local (_, vars) -> List.concat_map (fun (_, e) -> collect_free_idents e) vars
   | FunctionCall (_, call) ->

@@ -23,32 +23,10 @@
   { "a": 1, "b": 3, "c": 4 }
 
   $ tsonnet ../../samples/objects/untouched_field.jsonnet
-  WARNING: ../../samples/objects/untouched_field.jsonnet:1:0 Unused variable result
-  
-  1: local result = {
-     ^^^^^^^^^^^^^^^^
-  2:     a: 1,
-     ^^^^^^^^^
-  3:     b: 42,
-     ^^^^^^^^^^
-  ---
   42
 
 
   $ tsonnet ../../samples/objects/untouched_invalid_field.jsonnet
-  WARNING: ../../samples/objects/untouched_invalid_field.jsonnet:1:0 Unused variable result
-  
-  1: local result = {
-     ^^^^^^^^^^^^^^^^
-  2:     a: 1,
-     ^^^^^^^^^
-  3:     b: self.a,
-     ^^^^^^^^^^^^^^
-  4:     c: self.d,
-     ^^^^^^^^^^^^^^
-  5:     d: self.c
-     ^^^^^^^^^^^^^
-  ---
   WARNING: ../../samples/objects/untouched_invalid_field.jsonnet:1:15 Cyclic reference found for 1->c
   
   1: local result = {

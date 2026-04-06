@@ -288,17 +288,6 @@
 
 
   $ tsonnet ../../samples/semantics/valid_object_access_non_cyclic_field.jsonnet
-  WARNING: ../../samples/semantics/valid_object_access_non_cyclic_field.jsonnet:1:0 Unused variable obj
-  
-  1: local obj = {
-     ^^^^^^^^^^^^^
-  2:     a: 1,
-     ^^^^^^^^^
-  3:     b: self.c,
-     ^^^^^^^^^^^^^^
-  4:     c: self.b,
-     ^^^^^^^^^^^^^^
-  ---
   WARNING: ../../samples/semantics/valid_object_access_non_cyclic_field.jsonnet:1:12 Cyclic reference found for 1->b
   
   1: local obj = {
