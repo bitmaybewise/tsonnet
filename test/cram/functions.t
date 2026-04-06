@@ -9,3 +9,6 @@
 
   $ tsonnet ../../samples/functions/closure.jsonnet
   25
+
+  $ tsonnet ../../samples/functions/method.jsonnet
+  4

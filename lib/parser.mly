@@ -101,6 +101,14 @@ obj_key:
 
 obj_field:
   | k = obj_key; COLON; e = assignable_expr { ObjectField (k, e) }
+  | k = obj_key;
+    LEFT_PAREN; params = separated_nonempty_list(COMMA, fundef_param); RIGHT_PAREN;
+    COLON; body = assignable_expr
+    { ObjectField (
+        k,
+        Closure (with_pos $startpos $endpos, { params = params; body = body })
+      )
+    }
   | e = single_var { ObjectExpr e }
   ;
 
@@ -213,6 +221,9 @@ funcall:
       })
     }
   | callee = scoped_expr;
+    LEFT_PAREN; params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN
+    { FunctionCall (with_pos $startpos $endpos, { callee = callee; args = params }) }
+  | callee = obj_field_access;
     LEFT_PAREN; params = separated_nonempty_list(COMMA, assignable_expr); RIGHT_PAREN
     { FunctionCall (with_pos $startpos $endpos, { callee = callee; args = params }) }
   ;
