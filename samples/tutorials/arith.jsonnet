@@ -15,6 +15,8 @@
   obj: { a: 1, b: 2 } + { b: 3, c: 4 },
   // Test if a field is in an object
   obj_member: 'foo' in { foo: 1 },
+
+// TODO
 //   // String formatting
 //   str1: 'The value of self.ex2 is '
 //         + self.ex2 + '.',
