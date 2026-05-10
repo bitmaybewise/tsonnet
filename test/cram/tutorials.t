@@ -92,6 +92,42 @@
     }
   }
 
+  $ tsonnet ../../samples/tutorials/conditionals.jsonnet
+  {
+    "Large Mojito": {
+      "garnish": "Lime wedge",
+      "ingredients": [
+        { "action": "muddle", "kind": "Mint", "qty": 12, "unit": "leaves" },
+        { "kind": "Banks", "qty": 3.0 },
+        { "kind": "Lime", "qty": 1.0 },
+        { "kind": "Simple Syrup", "qty": 1.0 },
+        { "kind": "Soda", "qty": 6 }
+      ],
+      "served": "Over crushed ice"
+    },
+    "Mojito": {
+      "garnish": null,
+      "ingredients": [
+        { "action": "muddle", "kind": "Mint", "qty": 6, "unit": "leaves" },
+        { "kind": "Banks", "qty": 1.5 },
+        { "kind": "Lime", "qty": 0.5 },
+        { "kind": "Simple Syrup", "qty": 0.5 },
+        { "kind": "Soda", "qty": 3 }
+      ],
+      "served": "Over crushed ice"
+    },
+    "Virgin Mojito": {
+      "garnish": null,
+      "ingredients": [
+        { "action": "muddle", "kind": "Mint", "qty": 6, "unit": "leaves" },
+        { "kind": "Lime", "qty": 0.5 },
+        { "kind": "Simple Syrup", "qty": 0.5 },
+        { "kind": "Soda", "qty": 3 }
+      ],
+      "served": "Over crushed ice"
+    }
+  }
+
   $ tsonnet ../../samples/tutorials/arith.jsonnet
   {
     "concat_array": [ 1, 2, 3, 4 ],
