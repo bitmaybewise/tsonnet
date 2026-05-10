@@ -80,6 +80,8 @@ rule read =
   | "self" { SELF }
   | "$" { TOP_LEVEL_OBJ }
   | "in" { IN }
+  | "if" { IF }
+  | "then" { THEN }
   | "function" { FUNCTION }
   | id { ID (Lexing.lexeme lexbuf) }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }

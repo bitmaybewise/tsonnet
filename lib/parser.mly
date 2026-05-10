@@ -33,6 +33,8 @@
 %token ASSIGN
 %token EQUALITY INEQUALITY GREATER GREATER_EQUAL LESS LESS_EQUAL IN
 %left EQUALITY INEQUALITY GREATER GREATER_EQUAL LESS LESS_EQUAL IN
+%token IF THEN
+%nonassoc THEN
 %token SHIFT_LEFT SHIFT_RIGHT
 %left SHIFT_LEFT SHIFT_RIGHT
 %token EOF
@@ -61,6 +63,7 @@ assignable_expr:
   | op = unary_op; e = assignable_expr { UnaryOp (with_pos $startpos $endpos, op, e) }
   | e = indexed_expr { e }
   | e = obj_field_access { e }
+  | e = conditional { e }
   | e = funcall { e }
   | e = closure { e }
   ;
@@ -241,4 +244,11 @@ closure:
     }
     (* precedence here will transform "function(x) x * x" into "function(x) (x * x)" *)
     %prec FUNCTION
+  ;
+
+conditional:
+  | IF; cond_expr = assignable_expr; THEN; then_expr = assignable_expr
+    { If (with_pos $startpos $endpos, cond_expr, then_expr) }
+    (* precedence here parses "if a then b + c" as "if a then (b + c)" *)
+    %prec THEN
   ;

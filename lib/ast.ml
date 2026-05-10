@@ -93,6 +93,7 @@ type expr =
   | FunctionDef of position * function_def
   | FunctionCall of position * function_call
   | Closure of position * closure
+  | If of position * expr * expr
 
 and object_entry =
   | ObjectField of string * expr

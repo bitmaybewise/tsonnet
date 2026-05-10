@@ -211,6 +211,7 @@ let rec translate venv expr =
   | FunctionDef (pos, def) -> translate_function_def venv (pos, def)
   | FunctionCall (pos, call) -> translate_function_call venv (pos, call)
   | Closure (pos, closure) -> translate_closure venv (pos, closure)
+  | If (pos, cond_expr, then_expr) -> translate_conditional venv (pos, cond_expr, then_expr)
   | expr' ->
     error (Error.Msg.type_invalid_expr (string_of_type expr'))
 
@@ -703,6 +704,15 @@ and translate_closure_call venv (pos, def_params, body, call_args) =
     in
     let* (_, body_type) = translate body_venv body in
     ok (venv, body_type)
+
+and translate_conditional venv (pos, cond_expr, then_expr) =
+  match cond_expr with
+  | Bool _ -> translate venv then_expr
+  | _ -> Error.error_at pos
+    (Error.Msg.type_mismatch
+      ~expected:(string_of_type (Bool (pos, true)))
+      ~got:(string_of_type cond_expr)
+    )
 
 let check (config : Config.t) expr  =
   let* _ = Scope.validate expr in

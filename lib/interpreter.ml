@@ -29,6 +29,7 @@ let rec interpret env expr =
   | FunctionDef (pos, def) -> interpret_function_def env (pos, def)
   | FunctionCall (pos, call) -> interpret_function_call env (pos, call)
   | Closure _ -> ok (env, expr)
+  | If (pos, cond_expr, then_expr) -> interpret_conditional env (pos, cond_expr, then_expr)
 
 and interpret_indexed_expr env (pos, varname, index_expr) =
   let* (env', index_expr') = interpret env index_expr in
@@ -504,6 +505,12 @@ and interpret_function_call env (pos, call) =
     apply_function env' pos def.params def.body call.args
   | _ ->
     Error.error_at pos (Error.Msg.var_not_found (string_of_type call.callee))
+
+and interpret_conditional env (pos, cond_expr, then_expr) =
+  match cond_expr with
+  | Bool (_, true) -> interpret env then_expr
+  | Bool (_, false) -> ok (env, Null pos)
+  | _ ->  failwith "TODO"
 
 let rec deep_eval expr =
   match expr with
