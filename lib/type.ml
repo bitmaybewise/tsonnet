@@ -211,7 +211,8 @@ let rec translate venv expr =
   | FunctionDef (pos, def) -> translate_function_def venv (pos, def)
   | FunctionCall (pos, call) -> translate_function_call venv (pos, call)
   | Closure (pos, closure) -> translate_closure venv (pos, closure)
-  | If (pos, cond_expr, then_expr) -> translate_conditional venv (pos, cond_expr, then_expr)
+  | If (pos, cond_expr, then_expr, else_expr_opt) ->
+      translate_conditional venv (pos, cond_expr, then_expr, else_expr_opt)
   | expr' ->
     error (Error.Msg.type_invalid_expr (string_of_type expr'))
 
@@ -705,9 +706,24 @@ and translate_closure_call venv (pos, def_params, body, call_args) =
     let* (_, body_type) = translate body_venv body in
     ok (venv, body_type)
 
-and translate_conditional venv (pos, cond_expr, then_expr) =
-  match cond_expr with
-  | Bool _ -> translate venv then_expr
+and translate_conditional venv (pos, cond_expr, then_expr, else_expr_opt) =
+  let* (_, cond_ty) = translate venv cond_expr in
+  match cond_ty with
+  | Tbool ->
+    let* (_, then_type) = translate venv then_expr in
+    (match else_expr_opt with
+    | Some else_expr ->
+      let* (_, else_type) = translate venv else_expr in
+      if then_type = else_type
+      then ok (venv, then_type)
+      else Error.error_at pos
+        (Error.Msg.type_conditional_branches_mismatch
+          ~then_type:(to_string then_type)
+          ~else_type:(to_string else_type)
+        )
+    | None ->
+      ok (venv, then_type)
+    )
   | _ -> Error.error_at pos
     (Error.Msg.type_mismatch
       ~expected:(string_of_type (Bool (pos, true)))

@@ -324,3 +324,11 @@
      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   [1]
 
+
+  $ tsonnet ../../samples/semantics/invalid_conditional_branches_type.jsonnet
+  ERROR: ../../samples/semantics/invalid_conditional_branches_type.jsonnet:1:0 Conditional branches have different types: then branch returns Number, else branch returns String
+  
+  1: if true then 1 else "oops"
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+

@@ -29,7 +29,8 @@ let rec interpret env expr =
   | FunctionDef (pos, def) -> interpret_function_def env (pos, def)
   | FunctionCall (pos, call) -> interpret_function_call env (pos, call)
   | Closure _ -> ok (env, expr)
-  | If (pos, cond_expr, then_expr) -> interpret_conditional env (pos, cond_expr, then_expr)
+  | If (pos, cond_expr, then_expr, else_expr_opt) ->
+      interpret_conditional env (pos, cond_expr, then_expr, else_expr_opt)
 
 and interpret_indexed_expr env (pos, varname, index_expr) =
   let* (env', index_expr') = interpret env index_expr in
@@ -506,11 +507,19 @@ and interpret_function_call env (pos, call) =
   | _ ->
     Error.error_at pos (Error.Msg.var_not_found (string_of_type call.callee))
 
-and interpret_conditional env (pos, cond_expr, then_expr) =
-  match cond_expr with
-  | Bool (_, true) -> interpret env then_expr
-  | Bool (_, false) -> ok (env, Null pos)
-  | _ ->  failwith "TODO"
+and interpret_conditional env (pos, cond_expr, then_expr, else_expr_opt) =
+  let* (_, cond) = interpret env cond_expr in
+  match cond with
+  | Bool (_, true) ->
+    interpret env then_expr
+  | Bool (_, false) ->
+    (match else_expr_opt with
+    | Some else_expr -> interpret env else_expr
+    | None -> ok (env, Null pos)
+    )
+  | _ ->
+    (* Unreachable: type checker ensures cond_expr is Bool *)
+    Error.error_at pos "interpret_conditional: non-boolean condition (type checker should prevent this)"
 
 let rec deep_eval expr =
   match expr with

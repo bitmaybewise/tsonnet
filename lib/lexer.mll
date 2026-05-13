@@ -82,6 +82,7 @@ rule read =
   | "in" { IN }
   | "if" { IF }
   | "then" { THEN }
+  | "else" { ELSE }
   | "function" { FUNCTION }
   | id { ID (Lexing.lexeme lexbuf) }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }

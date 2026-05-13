@@ -21,6 +21,9 @@
 %token COLON
 %token DOT
 %token SELF TOP_LEVEL_OBJ
+%token IF THEN ELSE
+%nonassoc THEN
+%nonassoc ELSE
 %token PLUS MINUS MULTIPLY DIVIDE MODULO
 %nonassoc FUNCTION
 %left PLUS MINUS
@@ -33,8 +36,6 @@
 %token ASSIGN
 %token EQUALITY INEQUALITY GREATER GREATER_EQUAL LESS LESS_EQUAL IN
 %left EQUALITY INEQUALITY GREATER GREATER_EQUAL LESS LESS_EQUAL IN
-%token IF THEN
-%nonassoc THEN
 %token SHIFT_LEFT SHIFT_RIGHT
 %left SHIFT_LEFT SHIFT_RIGHT
 %token EOF
@@ -247,8 +248,14 @@ closure:
   ;
 
 conditional:
-  | IF; cond_expr = assignable_expr; THEN; then_expr = assignable_expr
-    { If (with_pos $startpos $endpos, cond_expr, then_expr) }
-    (* precedence here parses "if a then b + c" as "if a then (b + c)" *)
+  (* precedence here parses "if a then b + c" as "if a then (b + c)" *)
+  | IF; cond_expr = assignable_expr;
+    THEN; then_expr = assignable_expr;
+    ELSE; else_expr = assignable_expr
+    { If (with_pos $startpos $endpos, cond_expr, then_expr, Some else_expr) }
+    %prec ELSE
+  | IF; cond_expr = assignable_expr;
+    THEN; then_expr = assignable_expr
+    { If (with_pos $startpos $endpos, cond_expr, then_expr, None) }
     %prec THEN
   ;

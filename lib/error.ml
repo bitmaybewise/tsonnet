@@ -30,6 +30,10 @@ module Msg = struct
   let type_invalid_lookup_key expr = "Invalid object lookup key: " ^ expr
   let type_mismatch ~expected ~got =
     Printf.sprintf "Expected type %s, got %s" expected got
+  let type_conditional_branches_mismatch ~then_type ~else_type =
+    Printf.sprintf
+      "Conditional branches have different types: then branch returns %s, else branch returns %s"
+      then_type else_type
 
   (* Interpreter messages *)
   let interp_division_by_zero = "Division by zero"

@@ -1,4 +1,11 @@
 {
+   "cond_else_expr": 15,
+   "cond_else_false": "else branch",
+   "cond_else_true": "then branch",
+   "cond_nested_chain": 42,
+   "cond_nested_object": {
+      "result": "this one"
+   },
    "cond_null": null,
    "cond_true": "if true works!"
 }
