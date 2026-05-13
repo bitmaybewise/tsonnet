@@ -102,7 +102,7 @@ obj_key:
 obj_field:
   | k = obj_key; COLON; e = assignable_expr { ObjectField (k, e) }
   | k = obj_key;
-    LEFT_PAREN; params = separated_nonempty_list(COMMA, fundef_param); RIGHT_PAREN;
+    LEFT_PAREN; params = separated_list(COMMA, fundef_param); RIGHT_PAREN;
     COLON; body = assignable_expr
     { ObjectField (
         k,
@@ -201,7 +201,7 @@ fundef_param:
 
 fundef:
   | fname = ID;
-    LEFT_PAREN; params = separated_nonempty_list(COMMA, fundef_param); RIGHT_PAREN;
+    LEFT_PAREN; params = separated_list(COMMA, fundef_param); RIGHT_PAREN;
     ASSIGN;
     body = fundef_body { { name = fname; params = params; body = body } }
   ;
@@ -218,7 +218,7 @@ funcall_arg:
 
 funcall:
   | fname = ID;
-    LEFT_PAREN; params = separated_nonempty_list(COMMA, funcall_arg); RIGHT_PAREN
+    LEFT_PAREN; params = separated_list(COMMA, funcall_arg); RIGHT_PAREN
     { FunctionCall
       (with_pos $startpos $endpos, {
         callee = Ident (with_pos $startpos(fname) $endpos(fname), fname);
@@ -226,16 +226,16 @@ funcall:
       })
     }
   | callee = scoped_expr;
-    LEFT_PAREN; params = separated_nonempty_list(COMMA, funcall_arg); RIGHT_PAREN
+    LEFT_PAREN; params = separated_list(COMMA, funcall_arg); RIGHT_PAREN
     { FunctionCall (with_pos $startpos $endpos, { callee = callee; args = params }) }
   | callee = obj_field_access;
-    LEFT_PAREN; params = separated_nonempty_list(COMMA, funcall_arg); RIGHT_PAREN
+    LEFT_PAREN; params = separated_list(COMMA, funcall_arg); RIGHT_PAREN
     { FunctionCall (with_pos $startpos $endpos, { callee = callee; args = params }) }
   ;
 
 closure:
   | FUNCTION;
-    LEFT_PAREN; params = separated_nonempty_list(COMMA, fundef_param); RIGHT_PAREN;
+    LEFT_PAREN; params = separated_list(COMMA, fundef_param); RIGHT_PAREN;
     body = assignable_expr {
       Closure (with_pos $startpos $endpos, { params = params; body = body })
     }

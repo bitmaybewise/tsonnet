@@ -1,0 +1,10 @@
+{
+   "applied": "world",
+   "greet": "hello",
+   "inline": 42,
+   "method_call": 7,
+   "obj": {
+      "x": 1,
+      "y": 2
+   }
+}

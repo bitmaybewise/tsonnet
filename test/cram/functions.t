@@ -15,3 +15,12 @@
 
   $ tsonnet ../../samples/functions/method.jsonnet
   4
+
+  $ tsonnet ../../samples/functions/no_args.jsonnet
+  {
+    "applied": "world",
+    "greet": "hello",
+    "inline": 42,
+    "method_call": 7,
+    "obj": { "x": 1, "y": 2 }
+  }
