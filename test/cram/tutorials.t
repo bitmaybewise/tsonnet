@@ -175,3 +175,22 @@
       "served": "Straight Up"
     }
   }
+
+  $ tsonnet ../../samples/tutorials/computed-fields.jsonnet
+  {
+    "Margarita": {
+      "garnish": "Salt",
+      "ingredients": [
+        { "kind": "Tequila Blanco", "qty": 2 },
+        { "kind": "Lime", "qty": 1 },
+        { "kind": "Cointreau", "qty": 1 }
+      ]
+    },
+    "Margarita Unsalted": {
+      "ingredients": [
+        { "kind": "Tequila Blanco", "qty": 2 },
+        { "kind": "Lime", "qty": 1 },
+        { "kind": "Cointreau", "qty": 1 }
+      ]
+    }
+  }
