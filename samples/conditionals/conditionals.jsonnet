@@ -13,5 +13,8 @@
             else
                 if true then 42
                 else 1
-        else 2
+        else 2,
+    [if true then 'conditional_attribute_then']: true,
+    [if false then '...']: false,
+    [if false then '...' else 'conditional_attribute_else']: false
 }

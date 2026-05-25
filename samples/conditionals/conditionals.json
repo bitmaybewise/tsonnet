@@ -7,5 +7,7 @@
       "result": "this one"
    },
    "cond_null": null,
-   "cond_true": "if true works!"
+   "cond_true": "if true works!",
+   "conditional_attribute_else": false,
+   "conditional_attribute_then": true
 }

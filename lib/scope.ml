@@ -82,6 +82,7 @@ and validate_object_entries entries context =
       acc >>= fun _ ->
       match entry with
       | ObjectField (_, expr) -> _validate expr context
+      | ObjectConditionalField (field_expr, expr) -> _validate field_expr context >>= fun () -> _validate expr context
       | ObjectExpr expr -> _validate expr context
     )
     (ok ())

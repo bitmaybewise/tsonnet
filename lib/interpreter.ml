@@ -137,16 +137,29 @@ and interpret_object env (pos, entries) =
   let* (obj_env, fields) = List.fold_left
     (fun result entry ->
       let* (env', fields) = result in
+      let add_field name expr obj_id env =
+        (* Object fields are kept lazy -- they will be evaluated only when accessed.
+           This prevents infinite loops from circular references. *)
+        let env' = Env.add_obj_field name expr obj_id env in
+        ok (env', ObjectFields.add name fields)
+      in
       match entry with
       | ObjectExpr expr ->
         (* ObjectExpr holds a single local. Interpreting
           it will add the expr to the environment *)
         let* (env', _) = interpret env' expr in ok (env', fields)
       | ObjectField (name, expr) ->
-        (* Object fields are kept lazy -- they will be evaluated only when accessed.
-           This prevents infinite loops from circular references. *)
-        let env' = Env.add_obj_field name expr obj_id env' in
-        ok (env', ObjectFields.add name fields)
+        add_field name expr obj_id env'
+      | ObjectConditionalField (field_expr, expr) ->
+        let* (_, ident) = interpret env field_expr in
+        (match ident with
+        | Null _ -> ok (env', fields) (* null attribute names are ignored *)
+        | String (_, name) -> add_field name expr obj_id env'
+        | _ ->
+          let field_pos = match field_expr with If (p, _, _, _) -> p | _ -> pos in
+          Error.error_at field_pos
+            (Error.Msg.invalid_conditional_field_key (string_of_type ident))
+        )
     )
     (ok (obj_env, ObjectFields.empty))
     entries

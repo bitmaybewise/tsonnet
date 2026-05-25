@@ -97,6 +97,7 @@ type expr =
 
 and object_entry =
   | ObjectField of string * expr
+  | ObjectConditionalField of expr * expr
   | ObjectExpr of expr
 and object_scope =
   | Self
@@ -236,6 +237,7 @@ let rec string_of_type = function
 
 and string_of_object_entry = function
   | ObjectField (field, expr) -> field ^ ": " ^ string_of_type expr
+  | ObjectConditionalField (field, expr) -> string_of_type field ^ ": " ^ string_of_type expr
   | ObjectExpr expr -> string_of_type expr
 
 

@@ -11,6 +11,7 @@ module Msg : sig
   val invalid_binary_op : string
   val invalid_unary_op : string
   val must_be_object : string
+  val invalid_conditional_field_key : string -> string
 
   (* Parser messages *)
   val parse_error : string

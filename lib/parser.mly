@@ -113,6 +113,7 @@ obj_field:
         Closure (with_pos $startpos $endpos, { params = params; body = body })
       )
     }
+  | LEFT_SQR_BRACKET; k = conditional; RIGHT_SQR_BRACKET; COLON; e = assignable_expr { ObjectConditionalField (k, e) }
   | e = single_var { ObjectExpr e }
   ;
 

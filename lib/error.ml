@@ -14,6 +14,8 @@ module Msg = struct
   let invalid_binary_op = "Invalid binary operation"
   let invalid_unary_op = "Invalid unary operation"
   let must_be_object = "Must be an object"
+  let invalid_conditional_field_key ty =
+    Printf.sprintf "Conditional field key must be String or Null, got %s" ty
 
   (* Parser messages *)
   let parse_error = "Parsing error. Invalid syntax:"

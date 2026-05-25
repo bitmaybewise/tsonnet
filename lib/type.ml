@@ -9,7 +9,7 @@ type tsonnet_type =
   | Tnull
   | Tbool
   | Tnumber
-  | Tstring
+  | Tstring of string
   | Tany
   | Tarray of tsonnet_type
   | Tobject of t_object_entry list
@@ -47,7 +47,7 @@ let rec to_string = function
   | Tnull -> "Null"
   | Tbool -> "Bool"
   | Tnumber -> "Number"
-  | Tstring -> "String"
+  | Tstring _ -> "String"
   | Tany -> "Any"
   | Tarray ty -> "Array of " ^ to_string ty
   | Tobject fields ->
@@ -100,6 +100,7 @@ let rec collect_free_idents = function
   | ParsedObject (_, entries) ->
     List.concat_map (function
       | ObjectField (_, e) -> collect_free_idents e
+      | ObjectConditionalField (field, e) -> List.append (collect_free_idents field) (collect_free_idents e)
       | ObjectExpr e -> collect_free_idents e
     ) entries
   | ObjectFieldAccess (_, scope, exprs) ->
@@ -163,6 +164,9 @@ and check_object_for_cycles venv entries seen =
     (fun ok entry -> ok >>= fun _ ->
       match entry with
       | ObjectField (field, expr) -> check_expr_for_cycles venv expr (field :: seen)
+      | ObjectConditionalField (field, expr) ->
+        check_expr_for_cycles venv field seen >>= fun () ->
+        check_expr_for_cycles venv expr seen
       | ObjectExpr expr -> check_expr_for_cycles venv expr seen
     )
     (ok ())
@@ -198,7 +202,7 @@ let rec translate venv expr =
   | Null _ -> ok (venv, Tnull)
   | Bool _ -> ok (venv, Tbool)
   | Number _ -> ok (venv, Tnumber)
-  | String _ -> ok (venv, Tstring)
+  | String (_, s) -> ok (venv, Tstring s)
   | Ident (pos, varname) -> translate_ident venv pos varname
   | Array (_pos, elems) -> translate_array venv elems
   | ParsedObject (pos, entries) -> translate_object venv pos entries
@@ -224,7 +228,7 @@ and translate_indexed_expr venv (pos, varname, index_expr) =
       ~succ:(fun venv' expr' ->
         match expr' with
         | (Tarray _) as ty -> ok (venv', ty)
-        | Tstring as ty -> ok (venv', ty)
+        | (Tstring _) as ty -> ok (venv', ty)
         | Lazy expr -> translate venv expr
         | ty -> error (Error.Msg.type_non_indexable_value (to_string ty))
       )
@@ -359,6 +363,16 @@ and translate_object venv pos entries =
         let* (venv', _) = translate venv expr in (ok venv')
       | ObjectField (attr, expr) ->
         ok (Env.add_obj_field attr (Lazy expr) obj_id venv)
+      | ObjectConditionalField (attr_expr, expr) ->
+        let* (_, ty) = translate venv attr_expr in
+        (match ty with
+        | Tstring attr -> ok (Env.add_obj_field attr (Lazy expr) obj_id venv)
+        | Tnull -> ok venv
+        | _ ->
+          let attr_pos = match attr_expr with If (p, _, _, _) -> p | _ -> pos in
+          Error.error_at attr_pos
+            (Error.Msg.invalid_conditional_field_key (to_string ty))
+        )
     )
     (ok venv)
     entries
@@ -466,7 +480,7 @@ and translate_object_field_access venv pos scope chain_exprs =
       | Number (pos, _) ->
         (* Handle numeric indexing of strings and arrays *)
         (match prev_ty with
-        | Tstring -> ok (venv, Tstring)
+        | Tstring _ as ty -> ok (venv, ty)
         | Tarray elem_ty -> ok (venv, elem_ty)
         | _ -> Error.error_at pos (Error.Msg.type_non_indexable_type (to_string prev_ty))
         )
@@ -480,7 +494,7 @@ and translate_bin_op venv pos op e1 e2 =
   let* (venv', e1') = translate venv e1 in
   let* (venv'', e2') = translate venv' e2 in
   match op, e1', e2' with
-  | Add, _, Tstring | Add, Tstring, _ -> ok (venv'', Tstring)
+  | Add, _, Tstring s | Add, Tstring s, _ -> ok (venv'', Tstring s)
   | Add, Tnumber, Tnumber -> ok (venv'', Tnumber)
   | Add, (Tarray _), (Tarray _) -> ok (venv'', Tarray Tany)
   | Add, (Tobject _ | TruntimeObject _ | TobjectPtr _), (Tobject _ | TruntimeObject _ | TobjectPtr _) ->
@@ -502,11 +516,11 @@ and translate_bin_op venv pos op e1 e2 =
   | GreaterThanOrEqual, Tnumber, Tnumber -> ok (venv'', Tbool)
   | LessThan, Tnumber, Tnumber -> ok (venv'', Tbool)
   | LessThanOrEqual, Tnumber, Tnumber -> ok (venv'', Tbool)
-  | GreaterThan, Tstring, Tstring -> ok (venv'', Tbool)
-  | GreaterThanOrEqual, Tstring, Tstring -> ok (venv'', Tbool)
-  | LessThan, Tstring, Tstring -> ok (venv'', Tbool)
-  | LessThanOrEqual, Tstring, Tstring -> ok (venv'', Tbool)
-  | In, Tstring, (Tobject _ | Tany | TruntimeObject _ | TobjectPtr _) -> ok (venv'', Tbool)
+  | GreaterThan, Tstring _, Tstring _ -> ok (venv'', Tbool)
+  | GreaterThanOrEqual, Tstring _, Tstring _ -> ok (venv'', Tbool)
+  | LessThan, Tstring _, Tstring _ -> ok (venv'', Tbool)
+  | LessThanOrEqual, Tstring _, Tstring _ -> ok (venv'', Tbool)
+  | In, Tstring _, (Tobject _ | Tany | TruntimeObject _ | TobjectPtr _) -> ok (venv'', Tbool)
   | _, Tany, _ | _, _, Tany -> ok (venv'', Tany)
   | _ -> Error.error_at pos Error.Msg.invalid_binary_op
 
@@ -714,13 +728,16 @@ and translate_conditional venv (pos, cond_expr, then_expr, else_expr_opt) =
     (match else_expr_opt with
     | Some else_expr ->
       let* (_, else_type) = translate venv else_expr in
-      if then_type = else_type
-      then ok (venv, then_type)
-      else Error.error_at pos
-        (Error.Msg.type_conditional_branches_mismatch
-          ~then_type:(to_string then_type)
-          ~else_type:(to_string else_type)
-        )
+      (match (then_type, else_type) with
+      | Tstring _, Tstring _ ->
+        ok (venv, then_type)
+      | _ ->
+        Error.error_at pos
+          (Error.Msg.type_conditional_branches_mismatch
+            ~then_type:(to_string then_type)
+            ~else_type:(to_string else_type)
+          )
+      )
     | None ->
       ok (venv, then_type)
     )
