@@ -19,6 +19,7 @@ module Msg : sig
 
   (* Type checker messages *)
   val type_cyclic_reference : string -> string
+  val type_cyclic_conditional_field_key : string
   val type_unused_variable : string -> string
   val type_non_indexable_value : string -> string
   val type_expected_integer_index : string -> string

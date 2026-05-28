@@ -42,6 +42,15 @@ and t_closure = {
   body: expr;
 }
 
+(* Semantic equality for types. *)
+let semantic_type_equal ty_a ty_b =
+  match ty_a, ty_b with
+  (* Ignores representation details that do not affect type identity,
+     such as the concrete value carried by Tstring.  *)
+  | Tstring _, Tstring _ -> true
+  (* Falls back to structural equality otherwise. *)
+  | _ -> ty_a = ty_b
+
 let rec to_string = function
   | Tunit -> "()"
   | Tnull -> "Null"
@@ -153,6 +162,7 @@ and check_expr_for_cycles venv expr seen =
   | BinOp (_, _, e1, e2) -> iter_for_cycles venv seen [e1; e2]
   | UnaryOp (_, _, e) -> check_expr_for_cycles venv e seen
   | Seq exprs -> iter_for_cycles venv seen exprs
+  | If (_, cond_expr, then_expr, else_expr_opt) -> check_conditional_for_cycles venv (cond_expr, then_expr, else_expr_opt) seen
   | _ -> ok ()
 and iter_for_cycles venv seen exprs =
   List.fold_left
@@ -196,6 +206,14 @@ and check_object_field_chain_for_cycles venv (pos, scope, exprs) seen =
     (ok ())
     exprs
 
+and check_conditional_for_cycles venv (cond_expr, then_expr, else_expr_opt) seen =
+  let* () = check_expr_for_cycles venv cond_expr seen in
+  let* () = check_expr_for_cycles venv then_expr seen in
+  (match else_expr_opt with
+  | Some else_expr -> check_expr_for_cycles venv else_expr seen
+  | None -> ok ()
+  )
+
 let rec translate venv expr =
   match expr with
   | Unit -> ok (venv, Tunit)
@@ -216,7 +234,7 @@ let rec translate venv expr =
   | FunctionCall (pos, call) -> translate_function_call venv (pos, call)
   | Closure (pos, closure) -> translate_closure venv (pos, closure)
   | If (pos, cond_expr, then_expr, else_expr_opt) ->
-      translate_conditional venv (pos, cond_expr, then_expr, else_expr_opt)
+    translate_conditional venv (pos, cond_expr, then_expr, else_expr_opt)
   | expr' ->
     error (Error.Msg.type_invalid_expr (string_of_type expr'))
 
@@ -364,6 +382,14 @@ and translate_object venv pos entries =
       | ObjectField (attr, expr) ->
         ok (Env.add_obj_field attr (Lazy expr) obj_id venv)
       | ObjectConditionalField (attr_expr, expr) ->
+        (match check_expr_for_cycles venv attr_expr [] with
+        | Ok () -> ()
+        | Error _ ->
+          let attr_pos = match attr_expr with If (p, _, _, _) -> p | _ -> pos in
+          Error.warn Error.Msg.type_cyclic_conditional_field_key attr_pos
+        );
+        (* It's past attr_expr, which means it has no cyclic refs.
+           Now we need to add the expr to the attr name it resolves to. *)
         let* (_, ty) = translate venv attr_expr in
         (match ty with
         | Tstring attr -> ok (Env.add_obj_field attr (Lazy expr) obj_id venv)
@@ -379,16 +405,25 @@ and translate_object venv pos entries =
   in
 
   (* Check for cyclical references among object fields
-    (warn, don't error when the reference is not part of
-    the evaluation tree)
-  *)
+    (warn, don't error when the reference is not part of the evaluation tree) *)
   List.iter
     (fun entry ->
       match entry with
       | ObjectField (attr, _) ->
         (match check_cyclic_refs venv (Env.uniq_field_ident obj_id attr) [] pos with
         | Ok () -> ()
-        | Error _ -> Error.warn (Error.Msg.type_cyclic_reference (Env.uniq_field_ident obj_id attr)) pos)
+        | Error _ -> Error.warn (Error.Msg.type_cyclic_reference (Env.uniq_field_ident obj_id attr)) pos
+        )
+      | ObjectConditionalField (attr_expr, _) ->
+        (* attr_expr must be translated first to discover its name, then we can check_cyclic_refs *)
+        (match translate venv attr_expr with
+        | Ok (_, Tstring attr) ->
+          (match check_cyclic_refs venv (Env.uniq_field_ident obj_id attr) [] pos with
+          | Ok () -> ()
+          | Error _ -> Error.warn (Error.Msg.type_cyclic_reference (Env.uniq_field_ident obj_id attr)) pos
+          )
+        | _ -> ()
+        )
       | _ -> ()
     )
     entries;
@@ -396,16 +431,23 @@ and translate_object venv pos entries =
   (* Translate object fields lazily: warn on errors, skip invalid fields *)
   let entry_types = List.fold_left
     (fun entries' entry ->
-      match entry with
-      | ObjectField (attr, _) ->
-        (match Env.get_obj_field attr obj_id venv
-          ~succ:translate_lazy
-          ~err:(Error.error_at pos)
-        with
+      (* Resolve the field from the env to reuse memoized lazy translations
+        instead of retyping the field expression. *)
+      let get_field_type_from_env attr =
+        let obj_field = Env.get_obj_field attr obj_id venv ~succ:translate_lazy ~err:(Error.error_at pos) in
+        (match obj_field with
         | Ok (_, entry_ty) -> entries' @ [TobjectField (attr, entry_ty)]
-        | Error _ -> entries')
-      | _ ->
-        entries'
+        | Error _ -> entries'
+        )
+      in
+      match entry with
+      | ObjectField (attr, _) -> get_field_type_from_env attr
+      | ObjectConditionalField (attr_expr, _) ->
+        (match translate venv attr_expr with
+        | Ok (_, Tstring attr) -> get_field_type_from_env attr
+        | _ -> entries'
+        )
+      | _ -> entries'
     )
     []
     entries
@@ -728,16 +770,13 @@ and translate_conditional venv (pos, cond_expr, then_expr, else_expr_opt) =
     (match else_expr_opt with
     | Some else_expr ->
       let* (_, else_type) = translate venv else_expr in
-      (match (then_type, else_type) with
-      | Tstring _, Tstring _ ->
-        ok (venv, then_type)
-      | _ ->
-        Error.error_at pos
+      if semantic_type_equal then_type else_type
+      then ok (venv, then_type)
+        else Error.error_at pos
           (Error.Msg.type_conditional_branches_mismatch
             ~then_type:(to_string then_type)
             ~else_type:(to_string else_type)
           )
-      )
     | None ->
       ok (venv, then_type)
     )

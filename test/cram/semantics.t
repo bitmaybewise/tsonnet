@@ -332,3 +332,71 @@
      ^^^^^^^^^^^^^^^^^^^^^^^^^^
   [1]
 
+
+  $ tsonnet ../../samples/semantics/invalid_conditional_field_cyclic_value.jsonnet
+  WARNING: ../../samples/semantics/invalid_conditional_field_cyclic_value.jsonnet:1:0 Cyclic reference found for 1->b
+  
+  1: {
+     ^
+  2:     a: 1,
+     ^^^^^^^^^
+  3:     [if true then "b"]: self.c,
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4:     c: self.b,
+     ^^^^^^^^^^^^^^
+  ---
+  WARNING: ../../samples/semantics/invalid_conditional_field_cyclic_value.jsonnet:1:0 Cyclic reference found for 1->c
+  
+  1: {
+     ^
+  2:     a: 1,
+     ^^^^^^^^^
+  3:     [if true then "b"]: self.c,
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4:     c: self.b,
+     ^^^^^^^^^^^^^^
+  ---
+  ERROR: ../../samples/semantics/invalid_conditional_field_cyclic_value.jsonnet:3:29 Cyclic reference found for 1->c
+  
+  3:     [if true then "b"]: self.c,
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/semantics/valid_conditional_field_access_cyclic.jsonnet
+  WARNING: ../../samples/semantics/valid_conditional_field_access_cyclic.jsonnet:1:12 Cyclic reference found for 1->b
+  
+  1: local obj = {
+     ^^^^^^^^^^^^^
+  2:     a: 1,
+                 
+  3:     [if true then "b"]: self.c,
+                 ^^^^^^^^^^^^^^^^^^^
+  4:     c: self.b,
+                 ^^
+  ---
+  WARNING: ../../samples/semantics/valid_conditional_field_access_cyclic.jsonnet:1:12 Cyclic reference found for 1->c
+  
+  1: local obj = {
+     ^^^^^^^^^^^^^
+  2:     a: 1,
+                 
+  3:     [if true then "b"]: self.c,
+                 ^^^^^^^^^^^^^^^^^^^
+  4:     c: self.b,
+                 ^^
+  ---
+  1
+
+
+  $ tsonnet ../../samples/semantics/invalid_conditional_field_cyclic_key.jsonnet
+  WARNING: ../../samples/semantics/invalid_conditional_field_cyclic_key.jsonnet:4:5 Cyclic reference found in conditional field key
+  
+  4:     [if true then self.a else "x"]: "value",
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  ---
+  ERROR: ../../samples/semantics/invalid_conditional_field_cyclic_key.jsonnet:3:7 Cyclic reference found for 1->a
+  
+  3:     b: self.a,
+     ^^^^^^^^^^^^^^
+  [1]

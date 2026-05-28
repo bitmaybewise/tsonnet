@@ -23,6 +23,7 @@ module Msg = struct
 
   (* Type checker messages *)
   let type_cyclic_reference varname = "Cyclic reference found for " ^ varname
+  let type_cyclic_conditional_field_key = "Cyclic reference found in conditional field key"
   let type_unused_variable varname = "Unused variable " ^ varname
   let type_non_indexable_value ty = ty ^ " is a non indexable value"
   let type_expected_integer_index ty = "Expected Integer index, got " ^ ty
