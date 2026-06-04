@@ -31,7 +31,6 @@ let add_locals_to_context locals context = {
 
 let rec _validate expr context =
   match expr with
-  | Unit | Null _ | Number _ | String _ | Bool _ -> ok ()
   | Ident (pos, varname) ->
     (* Identifier validation - the heart of scope checking *)
     validate_ident pos varname context
@@ -52,9 +51,10 @@ let rec _validate expr context =
     _validate expr context
   | IndexedExpr (_, _, index_expr) ->
     _validate index_expr context
-  | _ ->
-    (* For any other expression types, no special scope validation needed *)
-    ok ()
+  (* For any other expression types, no special scope validation needed *)
+  | Unit | Null _ | Number _ | String _ | Bool _ | EvaluatedObject _
+  | RuntimeObject _ | ObjectPtr _ | FunctionDef _ | FunctionCall _ | Closure _
+  | If _ -> ok ()
 
 and validate_ident pos varname context =
   match (varname, context.in_object) with

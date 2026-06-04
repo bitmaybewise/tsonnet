@@ -562,7 +562,9 @@ let rec deep_eval expr =
   | RuntimeObject _ ->
     let* (_, evaluated) = interpret Env.empty expr in
     deep_eval evaluated
-  | expr ->
+  | Ident _ | ParsedObject _ | ObjectPtr _ | ObjectFieldAccess _
+  | BinOp _ | UnaryOp _ | IndexedExpr _ | Local _ | Seq _
+  | FunctionDef _ | FunctionCall _ | Closure _ | If _ as expr ->
     let* (_, evaluated) = interpret Env.empty expr in
     deep_eval evaluated
 

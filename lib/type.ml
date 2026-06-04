@@ -100,7 +100,6 @@ let rec to_string = function
   | Tunresolved -> "<unresolved>"
 
 let rec collect_free_idents = function
-  | Unit | Null _ | Number _ | String _ | Bool _ -> []
   | Ident (_, name) -> [name]
   | Array (_, exprs) -> List.concat_map collect_free_idents exprs
   | BinOp (_, _, e1, e2) -> collect_free_idents e1 @ collect_free_idents e2
@@ -126,7 +125,9 @@ let rec collect_free_idents = function
       | Named (_, e) -> collect_free_idents e
     ) call.args
   | Closure (_, closure) -> collect_free_idents closure.body
-  | _ -> []
+  | Unit | Null _ | Number _ | String _ | Bool _ | EvaluatedObject _
+  | RuntimeObject _ | ObjectPtr _ | FunctionDef _
+  | If _ -> []
 
 let reachable_bindings bindings initial_idents =
   let rec go visited = function
@@ -154,7 +155,6 @@ let rec check_cyclic_refs venv varname seen pos =
     | _ -> ok ()
 and check_expr_for_cycles venv expr seen =
   match expr with
-  | Unit | Null _ | Number _ | String _ | Bool _ -> ok ()
   | Array (_, exprs) -> iter_for_cycles venv seen exprs
   | ParsedObject (_, entries) -> check_object_for_cycles venv entries seen
   | ObjectFieldAccess (pos, scope, exprs) -> check_object_field_chain_for_cycles venv (pos, scope, exprs) seen
@@ -163,7 +163,10 @@ and check_expr_for_cycles venv expr seen =
   | UnaryOp (_, _, e) -> check_expr_for_cycles venv e seen
   | Seq exprs -> iter_for_cycles venv seen exprs
   | If (_, cond_expr, then_expr, else_expr_opt) -> check_conditional_for_cycles venv (cond_expr, then_expr, else_expr_opt) seen
-  | _ -> ok ()
+  | Unit | Null _ | Number _ | String _ | Bool _ | EvaluatedObject _
+  | RuntimeObject _ | ObjectPtr _ | FunctionDef _ | FunctionCall _ | Closure _
+  (* TODO *)
+  | Local _ | IndexedExpr _ -> ok ()
 and iter_for_cycles venv seen exprs =
   List.fold_left
     (fun ok' expr -> ok' >>= fun _ -> (check_expr_for_cycles venv expr seen))
@@ -235,7 +238,7 @@ let rec translate venv expr =
   | Closure (pos, closure) -> translate_closure venv (pos, closure)
   | If (pos, cond_expr, then_expr, else_expr_opt) ->
     translate_conditional venv (pos, cond_expr, then_expr, else_expr_opt)
-  | expr' ->
+  | EvaluatedObject _ | RuntimeObject _ | ObjectPtr _ as expr' ->
     error (Error.Msg.type_invalid_expr (string_of_type expr'))
 
 and translate_indexed_expr venv (pos, varname, index_expr) =
