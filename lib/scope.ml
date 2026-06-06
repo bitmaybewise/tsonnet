@@ -38,8 +38,8 @@ let rec _validate expr context =
   | ParsedObject (_, entries) ->
     (* Object validation - this is where scope context changes *)
     validate_object entries context
-  | ObjectFieldAccess (pos, scope, _) ->
-    validate_object_field_access pos scope context
+  | ObjectFieldAccess (pos, scope, chain) ->
+    validate_object_field_access pos scope chain context
   | Local (_, vars) ->
     validate_locals vars context
   | Seq exprs ->
@@ -100,24 +100,27 @@ and collect_local_variables entries =
     []
     entries
 
-and validate_object_field_access pos scope context =
+and validate_object_field_access pos scope chain context =
   (* This catches cases like:
     local x = self.field;
     local x = $.field;
     outside of objects *)
-  match scope with
-  | Self | TopLevel ->
-    if not context.in_object then
-      let with_error_msg = match scope with
-        | Self -> Error.Msg.self_out_of_scope
-        | TopLevel -> Error.Msg.no_toplevel_object
-        | ObjVarRef _ -> "" (* unreachable *)
-      in
-      Error.error_at pos with_error_msg
-    else ok ()
-  | ObjVarRef _ ->
-    (* Variable references are allowed anywhere *)
-    ok ()
+  let* () =
+    match scope with
+    | Self | TopLevel ->
+      if not context.in_object then
+        let with_error_msg = match scope with
+          | Self -> Error.Msg.self_out_of_scope
+          | TopLevel -> Error.Msg.no_toplevel_object
+          | ObjVarRef _ -> "" (* unreachable *)
+        in
+        Error.error_at pos with_error_msg
+      else ok ()
+    | ObjVarRef _ ->
+      (* Variable references are allowed anywhere *)
+      ok ()
+  in
+  validate_expression_list chain context
 
 and validate_locals vars context =
   (* This is crucial - it catches: local x = self.field; outside objects *)

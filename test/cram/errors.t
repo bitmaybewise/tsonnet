@@ -124,6 +124,30 @@
   [1]
 
 
+  $ tsonnet ../../samples/errors/object_field_access_index_self_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/object_field_access_index_self_out_of_scope.jsonnet:2:4 Can't use self outside of an object
+  
+  2: obj[self.one].two
+     ^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/errors/object_field_access_computed_self_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/object_field_access_computed_self_out_of_scope.jsonnet:2:5 Can't use self outside of an object
+  
+  2: obj.[self.one].two
+     ^^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/errors/object_field_access_index_toplevel_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/object_field_access_index_toplevel_out_of_scope.jsonnet:2:4 No top-level object found
+  
+  2: obj[$.one].two
+     ^^^^^^^^^^^^^^
+  [1]
+
+
   $ tsonnet ../../samples/errors/conditional_self_out_of_scope.jsonnet
   ERROR: ../../samples/errors/conditional_self_out_of_scope.jsonnet:1:27 Can't use self outside of an object
   
