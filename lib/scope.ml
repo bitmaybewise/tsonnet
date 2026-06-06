@@ -54,6 +54,8 @@ let rec _validate expr context =
     validate_if cond_expr then_expr else_expr_opt context
   | FunctionDef (_, def) ->
     validate_function_def def context
+  | FunctionCall (_, call) ->
+    validate_function_call call context
   (* Terminal variants *)
   | Null _ | Number _ | String _ | Bool _ -> ok ()
   (* These variants are not produced by parsing source files. Scope validation
@@ -61,7 +63,7 @@ let rec _validate expr context =
      internal or runtime, and have no source-level scope to check. *)
   | Unit | EvaluatedObject _ | RuntimeObject _ | ObjectPtr _ -> ok ()
   (* Remaining parser-produced expressions intentionally ignored. *)
-  | FunctionCall _ | Closure _ -> ok ()
+  | Closure _ -> ok ()
 
 and validate_ident pos varname context =
   match (varname, context.in_object) with
@@ -150,6 +152,18 @@ and validate_function_def def context =
     def.params
   in
   _validate def.body context
+
+and validate_function_call call context =
+  let* () = _validate call.callee context in
+  List.fold_left
+    (fun acc arg ->
+      acc >>= fun () ->
+      match arg with
+      | Positional expr -> _validate expr context
+      | Named (_, expr) -> _validate expr context
+    )
+    (ok ())
+    call.args
 
 and validate_if cond_expr then_expr else_expr_opt context =
   _validate cond_expr context >>= fun () ->
