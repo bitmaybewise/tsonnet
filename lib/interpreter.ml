@@ -121,12 +121,32 @@ and interpret_local env vars =
   in ok (env', Unit)
 
 and interpret_seq env exprs =
+  let rec collect_locals = function
+    | Local (_, vars) :: rest ->
+      let (all_vars, body) = collect_locals rest in
+      (vars @ all_vars, body)
+    | rest -> ([], rest)
+  in
   match exprs with
   | [] -> ok (env, Unit)
   | [expr] -> interpret env expr
+  | (Local _ :: _) as exprs ->
+    let (all_vars, body) = collect_locals exprs in
+    let local_names = List.map fst all_vars in
+    let* (env', _) = interpret_local env all_vars in
+    (* Locals introduce a lexical scope. If a local shadows a binding that is
+       currently being evaluated, the body should resolve to the local binding
+       instead of reporting a cycle against the outer one. *)
+    let saved_evaluating_bindings = !evaluating_bindings in
+    List.iter
+      (fun name -> evaluating_bindings := ObjectFields.remove name !evaluating_bindings)
+      local_names;
+    let result = interpret_seq env' body in
+    evaluating_bindings := saved_evaluating_bindings;
+    result
   | (expr :: exprs') ->
     interpret env expr >>= fun (env', _) ->
-    interpret env' (Seq exprs')
+    interpret_seq env' exprs'
 
 and interpret_object env (pos, entries) =
   let* obj_id = Env.Id.generate () in

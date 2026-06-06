@@ -371,6 +371,9 @@ and translate_seq venv exprs =
         (ok ())
         all_pos_vars
       in
+      (* Locals introduce a lexical scope. If a local shadows a binding that is
+         currently being translated, the body should resolve to the local binding
+         instead of reporting a cycle against the outer one. *)
       let saved_translating_fields = !translating_fields in
       List.iter
         (fun name -> translating_fields := ObjectFields.remove name !translating_fields)

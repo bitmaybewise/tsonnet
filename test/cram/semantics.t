@@ -103,6 +103,10 @@
   [1]
 
 
+  $ tsonnet ../../samples/semantics/valid_binding_local_shadowing.jsonnet
+  1
+
+
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_object_fields.jsonnet
   WARNING: ../../samples/semantics/invalid_binding_cycle_object_fields.jsonnet:1:0 Cyclic reference found for 1->a
   
