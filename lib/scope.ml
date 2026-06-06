@@ -54,10 +54,14 @@ let rec _validate expr context =
     validate_if cond_expr then_expr else_expr_opt context
   | FunctionDef (_, def) ->
     validate_function_def def context
-  (* For any other expression types, no special scope validation needed *)
-  | Unit | Null _ | Number _ | String _ | Bool _ | EvaluatedObject _
-  | RuntimeObject _ | ObjectPtr _ | FunctionCall _ | Closure _
-    -> ok ()
+  (* Terminal variants *)
+  | Null _ | Number _ | String _ | Bool _ -> ok ()
+  (* These variants are not produced by parsing source files. Scope validation
+     runs before type checking/interpreting, so they only appear through
+     internal or runtime, and have no source-level scope to check. *)
+  | Unit | EvaluatedObject _ | RuntimeObject _ | ObjectPtr _ -> ok ()
+  (* Remaining parser-produced expressions intentionally ignored. *)
+  | FunctionCall _ | Closure _ -> ok ()
 
 and validate_ident pos varname context =
   match (varname, context.in_object) with
