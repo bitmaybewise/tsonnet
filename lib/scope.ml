@@ -52,9 +52,11 @@ let rec _validate expr context =
     _validate index_expr context
   | If (_, cond_expr, then_expr, else_expr_opt) ->
     validate_if cond_expr then_expr else_expr_opt context
+  | FunctionDef (_, def) ->
+    validate_function_def def context
   (* For any other expression types, no special scope validation needed *)
   | Unit | Null _ | Number _ | String _ | Bool _ | EvaluatedObject _
-  | RuntimeObject _ | ObjectPtr _ | FunctionDef _ | FunctionCall _ | Closure _
+  | RuntimeObject _ | ObjectPtr _ | FunctionCall _ | Closure _
     -> ok ()
 
 and validate_ident pos varname context =
@@ -131,6 +133,19 @@ and validate_locals vars context =
 
 and validate_binop e1 e2 context =
   _validate e1 context >>= fun _ ->  _validate e2 context
+
+and validate_function_def def context =
+  let* () = List.fold_left
+    (fun acc (_, default_expr) ->
+      acc >>= fun () ->
+      match default_expr with
+      | Some expr -> _validate expr context
+      | None -> ok ()
+    )
+    (ok ())
+    def.params
+  in
+  _validate def.body context
 
 and validate_if cond_expr then_expr else_expr_opt context =
   _validate cond_expr context >>= fun () ->

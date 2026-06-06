@@ -164,6 +164,38 @@
   [1]
 
 
+  $ tsonnet ../../samples/errors/function_def_self_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/function_def_self_out_of_scope.jsonnet:1:20 Can't use self outside of an object
+  
+  1: local get_value() = self.value;
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/errors/function_def_toplevel_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/function_def_toplevel_out_of_scope.jsonnet:1:20 No top-level object found
+  
+  1: local get_value() = $.value;
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/errors/function_def_default_self_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/function_def_default_self_out_of_scope.jsonnet:1:24 Can't use self outside of an object
+  
+  1: local get_value(value = self.value) = value;
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/errors/function_def_default_toplevel_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/function_def_default_toplevel_out_of_scope.jsonnet:1:24 No top-level object found
+  
+  1: local get_value(value = $.value) = value;
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
   $ tsonnet ../../samples/errors/divide_by_zero.jsonnet
   ERROR: ../../samples/errors/divide_by_zero.jsonnet:1:0 Division by zero
   
