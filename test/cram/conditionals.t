@@ -18,3 +18,7 @@
   2:   [if true then 42]: "value"
      ^^^^^^^^^^^^^^^^^^^^^
   [1]
+
+
+  $ tsonnet ../../samples/conditionals/conditional_object_scope.jsonnet
+  { "one": 1, "three": 3, "two": 2 }

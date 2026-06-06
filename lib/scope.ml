@@ -1,6 +1,5 @@
 (* This module handles eager scope analysis to ensure that identifiers
-   like 'self' are used in appropriate contexts before lazy evaluation begins.
-*)
+   like 'self' are used in appropriate contexts before lazy evaluation begins. *)
 
 open Ast
 open Result
@@ -51,10 +50,12 @@ let rec _validate expr context =
     _validate expr context
   | IndexedExpr (_, _, index_expr) ->
     _validate index_expr context
+  | If (_, cond_expr, then_expr, else_expr_opt) ->
+    validate_if cond_expr then_expr else_expr_opt context
   (* For any other expression types, no special scope validation needed *)
   | Unit | Null _ | Number _ | String _ | Bool _ | EvaluatedObject _
   | RuntimeObject _ | ObjectPtr _ | FunctionDef _ | FunctionCall _ | Closure _
-  | If _ -> ok ()
+    -> ok ()
 
 and validate_ident pos varname context =
   match (varname, context.in_object) with
@@ -127,6 +128,14 @@ and validate_locals vars context =
 
 and validate_binop e1 e2 context =
   _validate e1 context >>= fun _ ->  _validate e2 context
+
+and validate_if cond_expr then_expr else_expr_opt context =
+  _validate cond_expr context >>= fun () ->
+  _validate then_expr context >>= fun () ->
+  (match else_expr_opt with
+  | Some else_expr -> _validate else_expr context
+  | None -> ok ()
+  )
 
 (* This function performs a single eager pass through the AST to validate
    that all identifiers are used in appropriate scopes. It catches scope

@@ -124,6 +124,22 @@
   [1]
 
 
+  $ tsonnet ../../samples/errors/conditional_self_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/conditional_self_out_of_scope.jsonnet:1:27 Can't use self outside of an object
+  
+  1: local value = if true then self.one else 1;
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/errors/conditional_toplevel_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/conditional_toplevel_out_of_scope.jsonnet:1:35 No top-level object found
+  
+  1: local value = if false then 1 else $.one;
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
   $ tsonnet ../../samples/errors/divide_by_zero.jsonnet
   ERROR: ../../samples/errors/divide_by_zero.jsonnet:1:0 Division by zero
   
@@ -154,4 +170,3 @@
   1: 5 % 0.0
      ^^^^^^^
   [1]
-
