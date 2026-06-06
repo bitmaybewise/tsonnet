@@ -52,8 +52,9 @@ let rec _validate expr context =
     _validate index_expr context
   | If (_, cond_expr, then_expr, else_expr_opt) ->
     validate_if cond_expr then_expr else_expr_opt context
-  | FunctionDef (_, def) ->
-    validate_function_def def context
+  | FunctionDef (_, {name = _; params; body})
+  | Closure (_, {params; body}) ->
+    validate_function_signature_and_body params body context
   | FunctionCall (_, call) ->
     validate_function_call call context
   (* Terminal variants *)
@@ -62,8 +63,6 @@ let rec _validate expr context =
      runs before type checking/interpreting, so they only appear through
      internal or runtime, and have no source-level scope to check. *)
   | Unit | EvaluatedObject _ | RuntimeObject _ | ObjectPtr _ -> ok ()
-  (* Remaining parser-produced expressions intentionally ignored. *)
-  | Closure _ -> ok ()
 
 and validate_ident pos varname context =
   match (varname, context.in_object) with
@@ -140,7 +139,7 @@ and validate_locals vars context =
 and validate_binop e1 e2 context =
   _validate e1 context >>= fun _ ->  _validate e2 context
 
-and validate_function_def def context =
+and validate_function_signature_and_body params body context =
   let* () = List.fold_left
     (fun acc (_, default_expr) ->
       acc >>= fun () ->
@@ -149,9 +148,9 @@ and validate_function_def def context =
       | None -> ok ()
     )
     (ok ())
-    def.params
+    params
   in
-  _validate def.body context
+  _validate body context
 
 and validate_function_call call context =
   let* () = _validate call.callee context in

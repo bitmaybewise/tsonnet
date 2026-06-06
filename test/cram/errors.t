@@ -244,6 +244,38 @@
   [1]
 
 
+  $ tsonnet ../../samples/errors/closure_self_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/closure_self_out_of_scope.jsonnet:1:11 Can't use self outside of an object
+  
+  1: function() self.value
+     ^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/errors/closure_toplevel_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/closure_toplevel_out_of_scope.jsonnet:1:11 No top-level object found
+  
+  1: function() $.value
+     ^^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/errors/closure_default_self_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/closure_default_self_out_of_scope.jsonnet:1:17 Can't use self outside of an object
+  
+  1: function(value = self.value) value
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/errors/closure_default_toplevel_out_of_scope.jsonnet
+  ERROR: ../../samples/errors/closure_default_toplevel_out_of_scope.jsonnet:1:17 No top-level object found
+  
+  1: function(value = $.value) value
+     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
   $ tsonnet ../../samples/errors/divide_by_zero.jsonnet
   ERROR: ../../samples/errors/divide_by_zero.jsonnet:1:0 Division by zero
   
