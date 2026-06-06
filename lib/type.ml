@@ -161,14 +161,18 @@ and check_expr_for_cycles venv expr seen =
   | Ident (pos, varname) -> check_cyclic_refs venv varname seen pos
   | BinOp (_, _, e1, e2) -> iter_for_cycles venv seen [e1; e2]
   | UnaryOp (_, _, e) -> check_expr_for_cycles venv e seen
-  | Seq exprs -> iter_for_cycles venv seen exprs
+  | Local _ ->
+    (* A bare local only extends the environment when translated; it does not
+       evaluate its bindings. Local cycles are checked when the local appears
+       in a Seq, where the extended environment and reachable body are known. *)
+    ok ()
+  | Seq exprs -> check_seq_for_cycles venv seen exprs
   | If (_, cond_expr, then_expr, else_expr_opt) -> check_conditional_for_cycles venv (cond_expr, then_expr, else_expr_opt) seen
   | IndexedExpr (pos, varname, index_expr) ->
     check_indexed_expr_for_cycles venv (pos, varname, index_expr) seen
   | Unit | Null _ | Number _ | String _ | Bool _ | EvaluatedObject _
   | RuntimeObject _ | ObjectPtr _ | FunctionDef _ | FunctionCall _ | Closure _
-  (* TODO *)
-  | Local _ -> ok ()
+    -> ok ()
 and iter_for_cycles venv seen exprs =
   List.fold_left
     (fun ok' expr -> ok' >>= fun _ -> (check_expr_for_cycles venv expr seen))
@@ -218,6 +222,45 @@ and check_conditional_for_cycles venv (cond_expr, then_expr, else_expr_opt) seen
   | Some else_expr -> check_expr_for_cycles venv else_expr seen
   | None -> ok ()
   )
+
+and check_seq_for_cycles venv seen exprs =
+  let rec collect_locals = function
+    | Local (pos, vars) :: rest ->
+      let (all_vars, body) = collect_locals rest in
+      (List.map (fun v -> (pos, v)) vars @ all_vars, body)
+    | rest -> ([], rest)
+  in
+  let rec go venv seen = function
+    | [] -> ok ()
+    | [expr] -> check_expr_for_cycles venv expr seen
+    | (Local _ :: _) as exprs ->
+      let (all_pos_vars, body) = collect_locals exprs in
+      let all_vars = List.map snd all_pos_vars in
+      let local_names = List.map fst all_vars in
+      let seen' = List.filter (fun name -> not (List.mem name local_names)) seen in
+      let venv' = List.fold_left
+        (fun venv (varname, var_expr) -> Env.add_local varname (Lazy var_expr) venv)
+        venv
+        all_vars
+      in
+      let body_idents = List.concat_map collect_free_idents body in
+      let reachable = reachable_bindings all_vars body_idents in
+      let* () = List.fold_left
+        (fun acc (pos, (varname, _)) ->
+          let* () = acc in
+          if List.mem varname reachable
+          then check_cyclic_refs venv' varname seen' pos
+          else ok ()
+        )
+        (ok ())
+        all_pos_vars
+      in
+      go venv' seen' body
+    | expr :: rest ->
+      let* () = check_expr_for_cycles venv expr seen in
+      go venv seen rest
+  in
+  go venv seen exprs
 
 and check_indexed_expr_for_cycles venv (pos, varname, index_expr) seen =
   let* () = check_expr_for_cycles venv index_expr seen in
@@ -298,6 +341,7 @@ and translate_seq venv exprs =
     | (Local _ :: _) as exprs ->
       let (all_pos_vars, body) = collect_locals exprs in
       let all_vars = List.map snd all_pos_vars in
+      let local_names = List.map fst all_vars in
       (* Add all local bindings to env *)
       let venv' = List.fold_left
         (fun venv (varname, var_expr) ->
@@ -327,7 +371,13 @@ and translate_seq venv exprs =
         (ok ())
         all_pos_vars
       in
-      go venv' body
+      let saved_translating_fields = !translating_fields in
+      List.iter
+        (fun name -> translating_fields := ObjectFields.remove name !translating_fields)
+        local_names;
+      let result = go venv' body in
+      translating_fields := saved_translating_fields;
+      result
     | expr :: rest ->
       let* (venv', _) = translate venv expr in
       go venv' rest

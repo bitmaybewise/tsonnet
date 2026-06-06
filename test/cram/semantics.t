@@ -95,6 +95,14 @@
   [1]
 
 
+  $ tsonnet ../../samples/semantics/invalid_binding_cycle_nested_local.jsonnet
+  ERROR: ../../samples/semantics/invalid_binding_cycle_nested_local.jsonnet:1:21 Cyclic reference found for b
+  
+  1: local a = (local b = b; b);
+     ^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_object_fields.jsonnet
   WARNING: ../../samples/semantics/invalid_binding_cycle_object_fields.jsonnet:1:0 Cyclic reference found for 1->a
   
