@@ -227,6 +227,24 @@
 
 
 
+  $ tsonnet ../../samples/semantics/invalid_binding_cycle_index_expr.jsonnet
+  ERROR: ../../samples/semantics/invalid_binding_cycle_index_expr.jsonnet:1:10 Cyclic reference found for i
+  
+  1: local i = i;
+     ^^^^^^^^^^^^
+  [1]
+
+
+
+  $ tsonnet ../../samples/semantics/invalid_binding_cycle_indexed_local.jsonnet
+  ERROR: ../../samples/semantics/invalid_binding_cycle_indexed_local.jsonnet:1:10 Cyclic reference found for a
+  
+  1: local a = a[0];
+     ^^^^^^^^^^^^^^^
+  [1]
+
+
+
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_indexed_field.jsonnet
   WARNING: ../../samples/semantics/invalid_binding_cycle_indexed_field.jsonnet:1:0 Cyclic reference found for 1->arr
   

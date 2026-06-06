@@ -163,10 +163,12 @@ and check_expr_for_cycles venv expr seen =
   | UnaryOp (_, _, e) -> check_expr_for_cycles venv e seen
   | Seq exprs -> iter_for_cycles venv seen exprs
   | If (_, cond_expr, then_expr, else_expr_opt) -> check_conditional_for_cycles venv (cond_expr, then_expr, else_expr_opt) seen
+  | IndexedExpr (pos, varname, index_expr) ->
+    check_indexed_expr_for_cycles venv (pos, varname, index_expr) seen
   | Unit | Null _ | Number _ | String _ | Bool _ | EvaluatedObject _
   | RuntimeObject _ | ObjectPtr _ | FunctionDef _ | FunctionCall _ | Closure _
   (* TODO *)
-  | Local _ | IndexedExpr _ -> ok ()
+  | Local _ -> ok ()
 and iter_for_cycles venv seen exprs =
   List.fold_left
     (fun ok' expr -> ok' >>= fun _ -> (check_expr_for_cycles venv expr seen))
@@ -216,6 +218,19 @@ and check_conditional_for_cycles venv (cond_expr, then_expr, else_expr_opt) seen
   | Some else_expr -> check_expr_for_cycles venv else_expr seen
   | None -> ok ()
   )
+
+and check_indexed_expr_for_cycles venv (pos, varname, index_expr) seen =
+  let* () = check_expr_for_cycles venv index_expr seen in
+  match Env.find_opt varname venv with
+  | Some (Lazy (Array (_, exprs))) ->
+    (match index_expr with
+    | Number (_, Int index) when index >= 0 && index < List.length exprs ->
+      check_expr_for_cycles venv (List.nth exprs index) (varname :: seen)
+    | _ -> ok ()
+    )
+  | Some (Lazy (String _)) -> ok ()
+  | Some (Lazy _) -> check_cyclic_refs venv varname seen pos
+  | _ -> ok ()
 
 let rec translate venv expr =
   match expr with
