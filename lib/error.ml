@@ -64,7 +64,13 @@ let enumerate_error_lines filename position ~highlight_error =
         let eat_more_chars = position.endpos.pos_cnum > !eaten_chars in
 
         if is_error_line && eat_more_chars then
-          read_lines (highlight_error line_num line position eaten_chars :: numbered_line :: acc) (line_num + 1)
+          let highlight = highlight_error line_num line position eaten_chars in
+          let acc =
+            if String.contains highlight '^'
+            then highlight :: numbered_line :: acc
+            else numbered_line :: acc
+          in
+          read_lines acc (line_num + 1)
         else
           read_lines acc (line_num + 1)
       with End_of_file -> List.rev acc
@@ -108,12 +114,12 @@ let plot_caret line_num line pos (eaten_chars: int ref) =
 
 let trace_file_position err pos =
   let start_col = pos.startpos.pos_cnum - pos.startpos.pos_bol in
-  Printf.sprintf "%s:%d:%d %s\n" pos.startpos.pos_fname pos.startpos.pos_lnum start_col err
+  Printf.sprintf "%s:%d:%d %s" pos.startpos.pos_fname pos.startpos.pos_lnum start_col err
 
 let trace (err: string) (pos: position) : (string, string) result =
   bind
     (enumerate_error_lines pos.startpos.pos_fname pos ~highlight_error: plot_caret)
-    (fun content -> ok (Printf.sprintf "%s\n%s" (trace_file_position err pos) content))
+    (fun content -> ok (Printf.sprintf "%s\n\n%s" (trace_file_position err pos) content))
 
 let error_at pos = fun msg ->
   let* error_msg = trace msg pos in

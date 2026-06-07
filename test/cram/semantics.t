@@ -169,7 +169,6 @@
   3:         value: $.b
               ^^^^^^^^^
   4:     },
-              
   ---
   WARNING: ../../samples/semantics/invalid_binding_cycle_object_nested_field.jsonnet:2:7 Cyclic reference found for 3->value
   
@@ -178,7 +177,6 @@
   3:         value: $.b
               ^^^^^^^^^
   4:     },
-              
   ---
   ERROR: ../../samples/semantics/invalid_binding_cycle_object_nested_field.jsonnet:3:17 Cyclic reference found for 1->b
   
@@ -323,7 +321,6 @@
   1: local obj = {
      ^^^^^^^^^^^^^
   2:     a: 1,
-                 
   3:     b: self.c,
                  ^^
   4:     c: self.b,
@@ -334,7 +331,6 @@
   1: local obj = {
      ^^^^^^^^^^^^^
   2:     a: 1,
-                 
   3:     b: self.c,
                  ^^
   4:     c: self.b,
@@ -399,7 +395,6 @@
   1: local obj = {
      ^^^^^^^^^^^^^
   2:     a: 1,
-                 
   3:     [if true then "b"]: self.c,
                  ^^^^^^^^^^^^^^^^^^^
   4:     c: self.b,
@@ -410,7 +405,6 @@
   1: local obj = {
      ^^^^^^^^^^^^^
   2:     a: 1,
-                 
   3:     [if true then "b"]: self.c,
                  ^^^^^^^^^^^^^^^^^^^
   4:     c: self.b,
