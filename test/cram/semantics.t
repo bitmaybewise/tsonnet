@@ -33,8 +33,6 @@
   [1]
 
 
-
-
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_array.jsonnet
   ERROR: ../../samples/semantics/invalid_binding_cycle_array.jsonnet:3:30 Cyclic reference found for a
   
@@ -68,7 +66,6 @@
   4:     local c = b,
      ^^^^^^^^^^^^^^^^
   [1]
-
 
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_binop.jsonnet
@@ -133,8 +130,6 @@
   [1]
 
 
-
-
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_object_nested_field.jsonnet
   WARNING: ../../samples/semantics/invalid_binding_cycle_object_nested_field.jsonnet:1:0 Cyclic reference found for 1->a
   
@@ -185,12 +180,6 @@
   [1]
 
 
-
-
-
-
-
-
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_outer_object_fields.jsonnet
   WARNING: ../../samples/semantics/invalid_binding_cycle_outer_object_fields.jsonnet:1:0 Cyclic reference found for 1->a
   
@@ -217,8 +206,6 @@
   [1]
 
 
-
-
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_object_field_and_local.jsonnet
   WARNING: ../../samples/semantics/invalid_binding_cycle_object_field_and_local.jsonnet:1:0 Cyclic reference found for 1->b
   
@@ -236,7 +223,6 @@
   [1]
 
 
-
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_index_expr.jsonnet
   ERROR: ../../samples/semantics/invalid_binding_cycle_index_expr.jsonnet:1:10 Cyclic reference found for i
   
@@ -245,14 +231,12 @@
   [1]
 
 
-
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_indexed_local.jsonnet
   ERROR: ../../samples/semantics/invalid_binding_cycle_indexed_local.jsonnet:1:10 Cyclic reference found for a
   
   1: local a = a[0];
      ^^^^^^^^^^^^^^^
   [1]
-
 
 
   $ tsonnet ../../samples/semantics/invalid_binding_cycle_indexed_field.jsonnet
@@ -279,8 +263,6 @@
   2:     arr: [self.first],
      ^^^^^^^^^^^^^^^^^^^^^^
   [1]
-
-
 
 
   $ tsonnet ../../samples/semantics/invalid_object_with_cyclic_field.jsonnet
@@ -313,8 +295,6 @@
   [1]
 
 
-
-
   $ tsonnet ../../samples/semantics/valid_object_access_non_cyclic_field.jsonnet
   WARNING: ../../samples/semantics/valid_object_access_non_cyclic_field.jsonnet:1:12 Cyclic reference found for 1->b
   
@@ -339,8 +319,16 @@
   1
 
 
+  $ tsonnet ../../samples/semantics/invalid_function_default_cycle.jsonnet
+  ERROR: ../../samples/semantics/invalid_function_default_cycle.jsonnet:1:11 Cyclic reference found for a
+  
+  1: local a = [a];
+     ^^^^^^^^^^^^^
+  [1]
 
 
+  $ tsonnet ../../samples/semantics/valid_unused_recursive_function_body.jsonnet
+  1
 
 
   $ tsonnet ../../samples/semantics/invalid_function_call_type.jsonnet

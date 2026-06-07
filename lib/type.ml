@@ -170,7 +170,8 @@ and check_expr_for_cycles venv expr seen =
   | If (_, cond_expr, then_expr, else_expr_opt) -> check_conditional_for_cycles venv (cond_expr, then_expr, else_expr_opt) seen
   | IndexedExpr (pos, varname, index_expr) ->
     check_indexed_expr_for_cycles venv (pos, varname, index_expr) seen
-  | FunctionDef _ | FunctionCall _ | Closure _ (* TO DO *)
+  | FunctionDef (_, def) -> check_function_def_for_cycles venv def seen
+  | FunctionCall _ | Closure _ (* TO DO *)
   (* Terminal variants *)
   | Unit | Null _ | Number _ | String _ | Bool _ -> ok ()
   (* These variants are not produced by parsing source files or the type checker.
@@ -225,6 +226,21 @@ and check_conditional_for_cycles venv (cond_expr, then_expr, else_expr_opt) seen
   | Some else_expr -> check_expr_for_cycles venv else_expr seen
   | None -> ok ()
   )
+
+and check_function_def_for_cycles venv def seen =
+  (* Do not check the function body here. Function definitions keep their body
+     lazy, as the body is typed only when the function is called. Checking it
+     at definition time would reject unused recursive or self-referential functions
+     too early. Defaults are checked because translate_function_def types them eagerly. *)
+  List.fold_left
+    (fun result (_, default_expr_opt) ->
+      let* () = result in
+      match default_expr_opt with
+      | Some default_expr -> check_expr_for_cycles venv default_expr seen
+      | None -> ok ()
+    )
+    (ok ())
+    def.params
 
 and check_seq_for_cycles venv seen exprs =
   let rec collect_locals = function
