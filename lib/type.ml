@@ -170,9 +170,12 @@ and check_expr_for_cycles venv expr seen =
   | If (_, cond_expr, then_expr, else_expr_opt) -> check_conditional_for_cycles venv (cond_expr, then_expr, else_expr_opt) seen
   | IndexedExpr (pos, varname, index_expr) ->
     check_indexed_expr_for_cycles venv (pos, varname, index_expr) seen
-  | Unit | Null _ | Number _ | String _ | Bool _ | EvaluatedObject _
-  | RuntimeObject _ | ObjectPtr _ | FunctionDef _ | FunctionCall _ | Closure _
-    -> ok ()
+  | FunctionDef _ | FunctionCall _ | Closure _ (* TO DO *)
+  (* Terminal variants *)
+  | Unit | Null _ | Number _ | String _ | Bool _ -> ok ()
+  (* These variants are not produced by parsing source files or the type checker.
+     Type checking runs before interpreting. *)
+  | EvaluatedObject _ | RuntimeObject _ | ObjectPtr _ -> ok ()
 and iter_for_cycles venv seen exprs =
   List.fold_left
     (fun ok' expr -> ok' >>= fun _ -> (check_expr_for_cycles venv expr seen))
