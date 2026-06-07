@@ -171,7 +171,8 @@ and check_expr_for_cycles venv expr seen =
   | IndexedExpr (pos, varname, index_expr) ->
     check_indexed_expr_for_cycles venv (pos, varname, index_expr) seen
   | FunctionDef (_, def) -> check_function_def_for_cycles venv def seen
-  | FunctionCall _ | Closure _ (* TO DO *)
+  | FunctionCall (_, call) -> check_function_call_for_cycles venv call seen
+  | Closure _ -> ok () (* TO DO *)
   (* Terminal variants *)
   | Unit | Null _ | Number _ | String _ | Bool _ -> ok ()
   (* These variants are not produced by parsing source files or the type checker.
@@ -241,6 +242,18 @@ and check_function_def_for_cycles venv def seen =
     )
     (ok ())
     def.params
+
+and check_function_call_for_cycles venv call seen =
+  let* () = check_expr_for_cycles venv call.callee seen in
+  List.fold_left
+    (fun result arg ->
+      let* () = result in
+      match arg with
+      | Positional expr -> check_expr_for_cycles venv expr seen
+      | Named (_, expr) -> check_expr_for_cycles venv expr seen
+    )
+    (ok ())
+    call.args
 
 and check_seq_for_cycles venv seen exprs =
   let rec collect_locals = function

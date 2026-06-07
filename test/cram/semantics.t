@@ -331,6 +331,30 @@
   1
 
 
+  $ tsonnet ../../samples/semantics/invalid_function_call_positional_arg_cycle.jsonnet
+  ERROR: ../../samples/semantics/invalid_function_call_positional_arg_cycle.jsonnet:2:13 Cyclic reference found for a
+  
+  2: f((local a = a; a))
+     ^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/semantics/invalid_function_call_named_arg_cycle.jsonnet
+  ERROR: ../../samples/semantics/invalid_function_call_named_arg_cycle.jsonnet:2:15 Cyclic reference found for a
+  
+  2: f(x=(local a = a; a))
+     ^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/semantics/invalid_function_call_callee_cycle.jsonnet
+  ERROR: ../../samples/semantics/invalid_function_call_callee_cycle.jsonnet:1:11 Cyclic reference found for f
+  
+  1: (local f = f; f)(1)
+     ^^^^^^^^^^^^^
+  [1]
+
+
   $ tsonnet ../../samples/semantics/invalid_function_call_type.jsonnet
   ERROR: ../../samples/semantics/invalid_function_call_type.jsonnet:2:18 Expected type Number, got String
   
