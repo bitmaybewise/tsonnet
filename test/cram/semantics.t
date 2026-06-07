@@ -331,6 +331,23 @@
   1
 
 
+  $ tsonnet ../../samples/semantics/invalid_closure_default_cycle.jsonnet
+  ERROR: ../../samples/semantics/invalid_closure_default_cycle.jsonnet:1:11 Cyclic reference found for a
+  
+  1: local a = [a];
+     ^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/semantics/valid_unused_recursive_closure_body.jsonnet
+  WARNING: ../../samples/semantics/valid_unused_recursive_closure_body.jsonnet:1:0 Unused variable f
+  
+  1: local f = function() f();
+     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  ---
+  1
+
+
   $ tsonnet ../../samples/semantics/invalid_function_call_positional_arg_cycle.jsonnet
   ERROR: ../../samples/semantics/invalid_function_call_positional_arg_cycle.jsonnet:2:13 Cyclic reference found for a
   

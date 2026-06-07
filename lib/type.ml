@@ -172,7 +172,7 @@ and check_expr_for_cycles venv expr seen =
     check_indexed_expr_for_cycles venv (pos, varname, index_expr) seen
   | FunctionDef (_, def) -> check_function_def_for_cycles venv def seen
   | FunctionCall (_, call) -> check_function_call_for_cycles venv call seen
-  | Closure _ -> ok () (* TO DO *)
+  | Closure (_, closure) -> check_closure_for_cycles venv closure seen
   (* Terminal variants *)
   | Unit | Null _ | Number _ | String _ | Bool _ -> ok ()
   (* These variants are not produced by parsing source files or the type checker.
@@ -233,6 +233,13 @@ and check_function_def_for_cycles venv def seen =
      lazy, as the body is typed only when the function is called. Checking it
      at definition time would reject unused recursive or self-referential functions
      too early. Defaults are checked because translate_function_def types them eagerly. *)
+  check_param_defaults_for_cycles venv def.params seen
+
+and check_closure_for_cycles venv closure seen =
+  (* Same semantics as FunctionDef here. *)
+  check_param_defaults_for_cycles venv closure.params seen
+
+and check_param_defaults_for_cycles venv params seen =
   List.fold_left
     (fun result (_, default_expr_opt) ->
       let* () = result in
@@ -241,7 +248,7 @@ and check_function_def_for_cycles venv def seen =
       | None -> ok ()
     )
     (ok ())
-    def.params
+    params
 
 and check_function_call_for_cycles venv call seen =
   let* () = check_expr_for_cycles venv call.callee seen in
