@@ -59,14 +59,4 @@
   1: local a = 1, b = a, c = d, d = c;
      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   ---
-  WARNING: ../../samples/variables/untouched_invalid_variable.jsonnet:1:0 Cyclic reference found for c
-  
-  1: local a = 1, b = a, c = d, d = c;
-     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  ---
-  WARNING: ../../samples/variables/untouched_invalid_variable.jsonnet:1:0 Cyclic reference found for d
-  
-  1: local a = 1, b = a, c = d, d = c;
-     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  ---
   1

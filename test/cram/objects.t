@@ -27,20 +27,4 @@
 
 
   $ tsonnet ../../samples/objects/untouched_invalid_field.jsonnet
-  WARNING: ../../samples/objects/untouched_invalid_field.jsonnet:1:15 Cyclic reference found for 1->c
-  
-  1: local result = {
-     ^^^^^^^^^^^^^^^^
-  2:     a: 1,
-  3:     b: self.a,
-  4:     c: self.d,
-  ---
-  WARNING: ../../samples/objects/untouched_invalid_field.jsonnet:1:15 Cyclic reference found for 1->d
-  
-  1: local result = {
-     ^^^^^^^^^^^^^^^^
-  2:     a: 1,
-  3:     b: self.a,
-  4:     c: self.d,
-  ---
   1

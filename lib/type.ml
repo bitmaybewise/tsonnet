@@ -2,7 +2,30 @@ open Ast
 open Result
 open Syntax_sugar
 
-let translating_fields = ref ObjectFields.empty
+type translation_key =
+  | TranslatingVar of string
+  | TranslatingObjField of Env.env_id * string
+
+module TranslationKeys = Set.Make(struct
+  type t = translation_key
+  let compare = Stdlib.compare
+end)
+
+let translating_bindings = ref TranslationKeys.empty
+
+let string_of_translation_key = function
+  | TranslatingVar varname -> varname
+  | TranslatingObjField (obj_id, field) -> Env.uniq_field_ident obj_id field
+
+let with_translating key pos fn =
+  if TranslationKeys.mem key !translating_bindings then
+    Error.error_at pos (Error.Msg.type_cyclic_reference (string_of_translation_key key))
+  else begin
+    translating_bindings := TranslationKeys.add key !translating_bindings;
+    let result = fn () in
+    translating_bindings := TranslationKeys.remove key !translating_bindings;
+    result
+  end
 
 type tsonnet_type =
   | Tunit
@@ -13,7 +36,7 @@ type tsonnet_type =
   | Tany
   | Tarray of tsonnet_type
   | Tobject of t_object_entry list
-  | TruntimeObject of Env.env_id * t_object_entry list
+  | TruntimeObject of Env.env_id * tsonnet_type Env.Map.t * t_object_entry list
   | TobjectPtr of Env.env_id * t_object_scope
   | Lazy of expr
   | Tunresolved
@@ -67,7 +90,7 @@ let rec to_string = function
     "{" ^ (
       String.concat ", " (List.map field_to_string fields)
     ) ^ "}"
-  | TruntimeObject (_, fields) ->
+  | TruntimeObject (_, _, fields) ->
     let field_to_string = function
       | TobjectField (field, ty) -> field ^ " : " ^ to_string ty
       | TobjectExpr ty -> to_string ty
@@ -145,175 +168,6 @@ let reachable_bindings bindings initial_idents =
   in
   go [] initial_idents
 
-let rec check_cyclic_refs venv varname seen pos =
-  if List.mem varname seen
-  then
-    Error.error_at pos (Error.Msg.type_cyclic_reference varname)
-  else
-    match Env.find_opt varname venv with
-    | Some (Lazy expr) -> check_expr_for_cycles venv expr (varname :: seen)
-    | _ -> ok ()
-and check_expr_for_cycles venv expr seen =
-  match expr with
-  | Array (_, exprs) -> iter_for_cycles venv seen exprs
-  | ParsedObject (_, entries) -> check_object_for_cycles venv entries seen
-  | ObjectFieldAccess (pos, scope, exprs) -> check_object_field_chain_for_cycles venv (pos, scope, exprs) seen
-  | Ident (pos, varname) -> check_cyclic_refs venv varname seen pos
-  | BinOp (_, _, e1, e2) -> iter_for_cycles venv seen [e1; e2]
-  | UnaryOp (_, _, e) -> check_expr_for_cycles venv e seen
-  | Local _ ->
-    (* A bare local only extends the environment when translated; it does not
-       evaluate its bindings. Local cycles are checked when the local appears
-       in a Seq, where the extended environment and reachable body are known. *)
-    ok ()
-  | Seq exprs -> check_seq_for_cycles venv seen exprs
-  | If (_, cond_expr, then_expr, else_expr_opt) -> check_conditional_for_cycles venv (cond_expr, then_expr, else_expr_opt) seen
-  | IndexedExpr (pos, varname, index_expr) ->
-    check_indexed_expr_for_cycles venv (pos, varname, index_expr) seen
-  | FunctionDef (_, def) -> check_function_def_for_cycles venv def seen
-  | FunctionCall (_, call) -> check_function_call_for_cycles venv call seen
-  | Closure (_, closure) -> check_closure_for_cycles venv closure seen
-  (* Terminal variants *)
-  | Unit | Null _ | Number _ | String _ | Bool _ -> ok ()
-  (* These variants are not produced by parsing source files or the type checker.
-     Type checking runs before interpreting. *)
-  | EvaluatedObject _ | RuntimeObject _ | ObjectPtr _ -> ok ()
-and iter_for_cycles venv seen exprs =
-  List.fold_left
-    (fun ok' expr -> ok' >>= fun _ -> (check_expr_for_cycles venv expr seen))
-    (ok ())
-    exprs
-and check_object_for_cycles venv entries seen =
-  List.fold_left
-    (fun ok entry -> ok >>= fun _ ->
-      match entry with
-      | ObjectField (field, expr) -> check_expr_for_cycles venv expr (field :: seen)
-      | ObjectConditionalField (field, expr) ->
-        check_expr_for_cycles venv field seen >>= fun () ->
-        check_expr_for_cycles venv expr seen
-      | ObjectExpr expr -> check_expr_for_cycles venv expr seen
-    )
-    (ok ())
-    entries
-and check_object_field_for_cycles venv (pos, scope, field_expr) seen =
-  (match Env.find_opt (string_of_object_scope scope) venv with
-  | Some (TobjectPtr (obj_id, _)) ->
-    (match field_expr with
-    | String (_, field) | Ident (_, field) ->
-      let obj_field = Env.uniq_field_ident obj_id field in
-      check_cyclic_refs venv obj_field seen pos
-    | IndexedExpr (_, field, index_expr) ->
-      let obj_field = Env.uniq_field_ident obj_id field in
-      let* () = check_cyclic_refs venv obj_field seen pos in
-      check_expr_for_cycles venv index_expr seen
-    | _ -> ok ()
-    )
-  | _ -> ok ()
-  )
-
-and check_object_field_chain_for_cycles venv (pos, scope, exprs) seen =
-  List.fold_left
-    (fun result expr ->
-      let* () = result in
-      check_object_field_for_cycles venv (pos, scope, expr) seen
-    )
-    (ok ())
-    exprs
-
-and check_conditional_for_cycles venv (cond_expr, then_expr, else_expr_opt) seen =
-  let* () = check_expr_for_cycles venv cond_expr seen in
-  let* () = check_expr_for_cycles venv then_expr seen in
-  (match else_expr_opt with
-  | Some else_expr -> check_expr_for_cycles venv else_expr seen
-  | None -> ok ()
-  )
-
-and check_function_def_for_cycles venv def seen =
-  (* Do not check the function body here. Function definitions keep their body
-     lazy, as the body is typed only when the function is called. Checking it
-     at definition time would reject unused recursive or self-referential functions
-     too early. Defaults are checked because translate_function_def types them eagerly. *)
-  check_param_defaults_for_cycles venv def.params seen
-
-and check_closure_for_cycles venv closure seen =
-  (* Same semantics as FunctionDef here. *)
-  check_param_defaults_for_cycles venv closure.params seen
-
-and check_param_defaults_for_cycles venv params seen =
-  List.fold_left
-    (fun result (_, default_expr_opt) ->
-      let* () = result in
-      match default_expr_opt with
-      | Some default_expr -> check_expr_for_cycles venv default_expr seen
-      | None -> ok ()
-    )
-    (ok ())
-    params
-
-and check_function_call_for_cycles venv call seen =
-  let* () = check_expr_for_cycles venv call.callee seen in
-  List.fold_left
-    (fun result arg ->
-      let* () = result in
-      match arg with
-      | Positional expr -> check_expr_for_cycles venv expr seen
-      | Named (_, expr) -> check_expr_for_cycles venv expr seen
-    )
-    (ok ())
-    call.args
-
-and check_seq_for_cycles venv seen exprs =
-  let rec collect_locals = function
-    | Local (pos, vars) :: rest ->
-      let (all_vars, body) = collect_locals rest in
-      (List.map (fun v -> (pos, v)) vars @ all_vars, body)
-    | rest -> ([], rest)
-  in
-  let rec go venv seen = function
-    | [] -> ok ()
-    | [expr] -> check_expr_for_cycles venv expr seen
-    | (Local _ :: _) as exprs ->
-      let (all_pos_vars, body) = collect_locals exprs in
-      let all_vars = List.map snd all_pos_vars in
-      let local_names = List.map fst all_vars in
-      let seen' = List.filter (fun name -> not (List.mem name local_names)) seen in
-      let venv' = List.fold_left
-        (fun venv (varname, var_expr) -> Env.add_local varname (Lazy var_expr) venv)
-        venv
-        all_vars
-      in
-      let body_idents = List.concat_map collect_free_idents body in
-      let reachable = reachable_bindings all_vars body_idents in
-      let* () = List.fold_left
-        (fun acc (pos, (varname, _)) ->
-          let* () = acc in
-          if List.mem varname reachable
-          then check_cyclic_refs venv' varname seen' pos
-          else ok ()
-        )
-        (ok ())
-        all_pos_vars
-      in
-      go venv' seen' body
-    | expr :: rest ->
-      let* () = check_expr_for_cycles venv expr seen in
-      go venv seen rest
-  in
-  go venv seen exprs
-
-and check_indexed_expr_for_cycles venv (pos, varname, index_expr) seen =
-  let* () = check_expr_for_cycles venv index_expr seen in
-  match Env.find_opt varname venv with
-  | Some (Lazy (Array (_, exprs))) ->
-    (match index_expr with
-    | Number (_, Int index) when index >= 0 && index < List.length exprs ->
-      check_expr_for_cycles venv (List.nth exprs index) (varname :: seen)
-    | _ -> ok ()
-    )
-  | Some (Lazy (String _)) -> ok ()
-  | Some (Lazy _) -> check_cyclic_refs venv varname seen pos
-  | _ -> ok ()
-
 let rec translate venv expr =
   match expr with
   | Unit -> ok (venv, Tunit)
@@ -347,7 +201,8 @@ and translate_indexed_expr venv (pos, varname, index_expr) =
         match expr' with
         | (Tarray _) as ty -> ok (venv', ty)
         | (Tstring _) as ty -> ok (venv', ty)
-        | Lazy expr -> translate venv expr
+        | Lazy expr ->
+          with_translating (TranslatingVar varname) pos (fun () -> translate venv expr)
         | ty -> error (Error.Msg.type_non_indexable_value (to_string ty))
       )
       ~err:(Error.error_at pos)
@@ -397,28 +252,15 @@ and translate_seq venv exprs =
         if not (List.mem varname reachable)
         then Error.warn (Error.Msg.type_unused_variable varname) pos
       ) all_pos_vars;
-      (* Check cycles: error for reachable, warn for unreachable *)
-      let* () = List.fold_left
-        (fun acc (pos, (varname, _)) -> acc >>= fun () ->
-          match check_cyclic_refs venv' varname [] pos with
-          | Ok () -> ok ()
-          | Error msg ->
-            if List.mem varname reachable
-            then error msg
-            else (Error.warn (Error.Msg.type_cyclic_reference varname) pos; ok ())
-        )
-        (ok ())
-        all_pos_vars
-      in
       (* Locals introduce a lexical scope. If a local shadows a binding that is
          currently being translated, the body should resolve to the local binding
          instead of reporting a cycle against the outer one. *)
-      let saved_translating_fields = !translating_fields in
+      let saved_translating_bindings = !translating_bindings in
       List.iter
-        (fun name -> translating_fields := ObjectFields.remove name !translating_fields)
+        (fun name -> translating_bindings := TranslationKeys.remove (TranslatingVar name) !translating_bindings)
         local_names;
       let result = go venv' body in
-      translating_fields := saved_translating_fields;
+      translating_bindings := saved_translating_bindings;
       result
     | expr :: rest ->
       let* (venv', _) = translate venv expr in
@@ -427,21 +269,17 @@ and translate_seq venv exprs =
   go venv exprs
 
 and translate_ident venv pos varname =
-  if ObjectFields.mem varname !translating_fields then
+  let key = TranslatingVar varname in
+  if TranslationKeys.mem key !translating_bindings then
     Error.error_at pos (Error.Msg.type_cyclic_reference varname)
-  else begin
-    translating_fields := ObjectFields.add varname !translating_fields;
-    let result = Env.find_var varname venv
+  else
+    Env.find_var varname venv
       ~succ:(fun venv ty ->
         match ty with
-        | Lazy expr -> translate venv expr
+        | Lazy expr -> with_translating key pos (fun () -> translate venv expr)
         | _ -> ok (venv, ty)
       )
       ~err:(Error.error_at pos)
-    in
-    translating_fields := ObjectFields.remove varname !translating_fields;
-    result
-  end
 
 and translate_array venv elems =
   (* As of now, we compare each element and if all have the same type,
@@ -477,95 +315,38 @@ and translate_lazy venv = function
 and translate_object venv pos entries =
   let* obj_id = Env.Id.generate () in
   let had_toplevel = Option.is_some (Env.find_opt "$" venv) in
-  let venv = Env.add_local "self" (TobjectPtr (obj_id, TobjectSelf)) venv in
-  let venv, _ =
-    Env.add_local_when_not_present "$" (TobjectPtr (obj_id, TobjectTopLevel)) venv
+  let obj_venv = Env.add_local "self" (TobjectPtr (obj_id, TobjectSelf)) venv in
+  let obj_venv, _ =
+    Env.add_local_when_not_present "$" (TobjectPtr (obj_id, TobjectTopLevel)) obj_venv
   in
 
   (* Translate locals *)
-  let* venv = List.fold_left
+  let* obj_venv = List.fold_left
     (fun result entry ->
-      let* venv = result in
+      let* obj_venv = result in
       match entry with
       | ObjectExpr expr ->
-        let* (venv', _) = translate venv expr in (ok venv')
+        let* (obj_venv', _) = translate obj_venv expr in ok obj_venv'
       | ObjectField (attr, expr) ->
-        ok (Env.add_obj_field attr (Lazy expr) obj_id venv)
+        ok (Env.add_obj_field attr (Lazy expr) obj_id obj_venv)
       | ObjectConditionalField (attr_expr, expr) ->
-        (match check_expr_for_cycles venv attr_expr [] with
-        | Ok () -> ()
-        | Error _ ->
-          let attr_pos = match attr_expr with If (p, _, _, _) -> p | _ -> pos in
-          Error.warn Error.Msg.type_cyclic_conditional_field_key attr_pos
-        );
-        (* It's past attr_expr, which means it has no cyclic refs.
-           Now we need to add the expr to the attr name it resolves to. *)
-        let* (_, ty) = translate venv attr_expr in
+        let* (_, ty) = translate obj_venv attr_expr in
         (match ty with
-        | Tstring attr -> ok (Env.add_obj_field attr (Lazy expr) obj_id venv)
-        | Tnull -> ok venv
+        | Tstring attr -> ok (Env.add_obj_field attr (Lazy expr) obj_id obj_venv)
+        | Tnull -> ok obj_venv
         | _ ->
           let attr_pos = match attr_expr with If (p, _, _, _) -> p | _ -> pos in
           Error.error_at attr_pos
             (Error.Msg.invalid_conditional_field_key (to_string ty))
         )
     )
-    (ok venv)
-    entries
-  in
-
-  (* Check for cyclical references among object fields
-    (warn, don't error when the reference is not part of the evaluation tree) *)
-  List.iter
-    (fun entry ->
-      match entry with
-      | ObjectField (attr, _) ->
-        (match check_cyclic_refs venv (Env.uniq_field_ident obj_id attr) [] pos with
-        | Ok () -> ()
-        | Error _ -> Error.warn (Error.Msg.type_cyclic_reference (Env.uniq_field_ident obj_id attr)) pos
-        )
-      | ObjectConditionalField (attr_expr, _) ->
-        (* attr_expr must be translated first to discover its name, then we can check_cyclic_refs *)
-        (match translate venv attr_expr with
-        | Ok (_, Tstring attr) ->
-          (match check_cyclic_refs venv (Env.uniq_field_ident obj_id attr) [] pos with
-          | Ok () -> ()
-          | Error _ -> Error.warn (Error.Msg.type_cyclic_reference (Env.uniq_field_ident obj_id attr)) pos
-          )
-        | _ -> ()
-        )
-      | _ -> ()
-    )
-    entries;
-
-  (* Translate object fields lazily: warn on errors, skip invalid fields *)
-  let entry_types = List.fold_left
-    (fun entries' entry ->
-      (* Resolve the field from the env to reuse memoized lazy translations
-        instead of retyping the field expression. *)
-      let get_field_type_from_env attr =
-        let obj_field = Env.get_obj_field attr obj_id venv ~succ:translate_lazy ~err:(Error.error_at pos) in
-        (match obj_field with
-        | Ok (_, entry_ty) -> entries' @ [TobjectField (attr, entry_ty)]
-        | Error _ -> entries'
-        )
-      in
-      match entry with
-      | ObjectField (attr, _) -> get_field_type_from_env attr
-      | ObjectConditionalField (attr_expr, _) ->
-        (match translate venv attr_expr with
-        | Ok (_, Tstring attr) -> get_field_type_from_env attr
-        | _ -> entries'
-        )
-      | _ -> entries'
-    )
-    []
+    (ok obj_venv)
     entries
   in
   (* Remove self and $ from the environment to prevent leaking *)
   let venv = Env.Map.remove "self" venv in
   let venv = if had_toplevel then venv else Env.Map.remove "$" venv in
-  ok (venv, TruntimeObject (obj_id, entry_types))
+  ok (venv, TruntimeObject (obj_id, obj_venv, []))
 
 and translate_object_field_access venv pos scope chain_exprs =
   let* (venv, obj) =
@@ -584,63 +365,67 @@ and translate_object_field_access venv pos scope chain_exprs =
       )
     | ObjVarRef varname ->
       (* For variable references, look up and translate the variable *)
-      Env.find_var varname venv
-        ~succ:(fun venv ty ->
-          match ty with
-          | TobjectPtr _ | TruntimeObject _ as obj -> ok (venv, obj)
-          | Lazy expr -> translate venv expr
-          | _ -> Error.error_at pos Error.Msg.must_be_object
-        )
-        ~err:(Error.error_at pos)
+      if TranslationKeys.mem (TranslatingVar varname) !translating_bindings then
+        match Env.find_opt "self" venv with
+        | Some (TobjectPtr _ as obj) -> ok (venv, obj)
+        | _ -> Error.error_at pos (Error.Msg.type_cyclic_reference varname)
+      else
+        Env.find_var varname venv
+          ~succ:(fun venv ty ->
+            match ty with
+            | TobjectPtr _ as obj -> ok (venv, obj)
+            | TruntimeObject (obj_id, obj_venv, fields) ->
+              let obj_venv = Env.add_local varname (TobjectPtr (obj_id, TobjectSelf)) obj_venv in
+              ok (venv, TruntimeObject (obj_id, obj_venv, fields))
+            | Lazy expr ->
+              with_translating (TranslatingVar varname) pos (fun () ->
+                match translate venv expr with
+                | Ok (venv', TruntimeObject (obj_id, obj_venv, fields)) ->
+                  let obj_venv = Env.add_local varname (TobjectPtr (obj_id, TobjectSelf)) obj_venv in
+                  ok (venv', TruntimeObject (obj_id, obj_venv, fields))
+                | result -> result
+              )
+            | _ -> Error.error_at pos Error.Msg.must_be_object
+          )
+          ~err:(Error.error_at pos)
   in
 
-  List.fold_left
-    (fun acc field_expr ->
+  let rec go acc = function
+    | [] -> acc
+    | field_expr :: rest ->
       let* (venv, prev_ty) = acc in
 
       let get_obj_id_and_env =
         match prev_ty with
         | TobjectPtr (obj_id, _) -> ok (obj_id, venv)
-        | TruntimeObject (obj_id, _) ->
-          (* TODO: we haven't included the environment in TruntimeObject yet.
-             It must be done such as Ast.RuntimeObject *)
-          let field_venv =
-            Env.add_local "self" (TobjectPtr (obj_id, TobjectSelf)) venv
-          in
-          let field_venv =
-            Env.add_local_when_not_present "$" (TobjectPtr (obj_id, TobjectTopLevel)) field_venv |> fst
-          in
-          ok (obj_id, field_venv)
+        | TruntimeObject (obj_id, obj_venv, _) -> ok (obj_id, obj_venv)
         | _ -> Error.error_at pos Error.Msg.must_be_object
       in
 
-      match field_expr with
-      | String (_, field) | Ident (_, field) ->
-        let* (obj_id, field_venv) = get_obj_id_and_env in
-        let key = Env.uniq_field_ident obj_id field in
-        if ObjectFields.mem key !translating_fields then
-          Error.error_at pos (Error.Msg.type_cyclic_reference key)
-        else begin
-          translating_fields := ObjectFields.add key !translating_fields;
-          let result = Env.get_obj_field field obj_id field_venv
+      let* next = match field_expr with
+        | String (_, field) | Ident (_, field) ->
+          let* (obj_id, field_venv) = get_obj_id_and_env in
+          let lookup_field () = Env.get_obj_field field obj_id field_venv
             ~succ:translate_lazy
             ~err:(Error.error_at pos)
           in
-          translating_fields := ObjectFields.remove key !translating_fields;
-          result
-        end
-      | Number (pos, _) ->
-        (* Handle numeric indexing of strings and arrays *)
-        (match prev_ty with
-        | Tstring _ as ty -> ok (venv, ty)
-        | Tarray elem_ty -> ok (venv, elem_ty)
-        | _ -> Error.error_at pos (Error.Msg.type_non_indexable_type (to_string prev_ty))
-        )
-      | _ ->
-        Error.error_at pos (Error.Msg.type_invalid_lookup_key (string_of_type field_expr))
-    )
-    (ok (venv, obj))
-    chain_exprs
+          (match rest with
+          | Number _ :: _ -> lookup_field ()
+          | _ -> with_translating (TranslatingObjField (obj_id, field)) pos lookup_field
+          )
+        | Number (pos, _) ->
+          (* Handle numeric indexing of strings and arrays *)
+          (match prev_ty with
+          | Tstring _ as ty -> ok (venv, ty)
+          | Tarray elem_ty -> ok (venv, elem_ty)
+          | _ -> Error.error_at pos (Error.Msg.type_non_indexable_type (to_string prev_ty))
+          )
+        | _ ->
+          Error.error_at pos (Error.Msg.type_invalid_lookup_key (string_of_type field_expr))
+      in
+      go (ok next) rest
+  in
+  go (ok (venv, obj)) chain_exprs
 
 and translate_bin_op venv pos op e1 e2 =
   let* (venv', e1') = translate venv e1 in
@@ -684,7 +469,7 @@ and translate_function_def venv (pos, def) =
       let* params' = acc in
       match default with
       | Some default_expr ->
-        let* (_, default_ty) = translate venv default_expr in
+        let* (venv', default_ty) = translate venv default_expr in
         ok (params' @ [(name, default_ty)])
       | None ->
         ok (params' @ [(name, Tunresolved)])
@@ -798,7 +583,9 @@ and translate_named_function_call venv (pos, name, args) =
       let venv_with_resolved_fun = Env.add_local name resolved_fun venv' in
       ok (venv_with_resolved_fun, resolved_return)
   | Some (Lazy expr) ->
-    let* (venv', resolved) = translate venv expr in
+    let* (venv', resolved) =
+      with_translating (TranslatingVar name) pos (fun () -> translate venv expr)
+    in
     let venv'' = Env.add_local name resolved venv' in
     translate_named_function_call venv'' (pos, name, args)
   | Some (Tclosure { params = closure_params; body = body_expr }) ->
@@ -813,7 +600,7 @@ and translate_closure venv (_pos, closure) =
       let* params' = acc in
       match default with
       | Some default_expr ->
-        let* (_, default_ty) = translate venv default_expr in
+        let* (venv', default_ty) = translate venv default_expr in
         ok (params' @ [(name, default_ty)])
       | None ->
         ok (params' @ [(name, Tunresolved)])
@@ -904,5 +691,5 @@ let check (config : Config.t) expr  =
   else
     let* _ = translate Env.empty expr in
     Env.Id.reset ();
-    translating_fields := ObjectFields.empty;
+    translating_bindings := TranslationKeys.empty;
     ok expr

@@ -208,18 +208,29 @@ and interpret_object_field_access env (pos, scope, chain_exprs) =
       )
     | ObjVarRef varname ->
       (* For variable references, look up and evaluate the variable *)
-      let* (env', expr) =
-        Env.find_var varname env ~succ:(interpret) ~err:(Error.error_at pos)
-      in
-      match expr with
-      | ObjectPtr (obj_id, (Self | TopLevel)) ->
-        (* If the variable holds a Self/TopLevel reference, the obj_id
-           already captures which object it refers to. We don't need to
-           re-resolve Self/TopLevel in the current environment. *)
-        ok (env', ObjectPtr (obj_id, ObjVarRef varname))
-      | ObjectPtr _ as obj -> ok (env', obj)
-      | RuntimeObject _ as obj -> ok (env', obj)
-      | _ -> Error.error_at pos Error.Msg.must_be_object
+      if ObjectFields.mem varname !evaluating_bindings then
+        match Env.find_opt "self" env with
+        | Some (ObjectPtr _ as obj) -> ok (env, obj)
+        | _ -> Error.error_at pos (Error.Msg.type_cyclic_reference varname)
+      else
+        let* (env', expr) =
+          Env.find_var varname env ~succ:(interpret) ~err:(Error.error_at pos)
+        in
+        match expr with
+        | ObjectPtr (obj_id, (Self | TopLevel)) ->
+          (* If the variable holds a Self/TopLevel reference, the obj_id
+             already captures which object it refers to. We don't need to
+             re-resolve Self/TopLevel in the current environment. *)
+          ok (env', ObjectPtr (obj_id, ObjVarRef varname))
+        | ObjectPtr _ as obj -> ok (env', obj)
+        | RuntimeObject (obj_pos, obj_env, fields) ->
+          (match Env.find_opt "self" obj_env with
+          | Some (ObjectPtr (obj_id, _)) ->
+            let obj_env = Env.add_local varname (ObjectPtr (obj_id, ObjVarRef varname)) obj_env in
+            ok (env', RuntimeObject (obj_pos, obj_env, fields))
+          | _ -> ok (env', RuntimeObject (obj_pos, obj_env, fields))
+          )
+        | _ -> Error.error_at pos Error.Msg.must_be_object
   in
 
   List.fold_left
@@ -268,10 +279,10 @@ and interpret_object_field_access env (pos, scope, chain_exprs) =
     chain_exprs
 
 and interpret_runtime_object env (pos, obj_env, fields) =
-  let* evaluated_fields = interpret_runtime_object_fields obj_env fields in
+  let* evaluated_fields = interpret_runtime_object_fields pos obj_env fields in
   ok (env, EvaluatedObject (pos, evaluated_fields))
 
-and interpret_runtime_object_fields obj_env fields =
+and interpret_runtime_object_fields pos obj_env fields =
   match Env.Map.find_opt "self" obj_env with
   | Some (ObjectPtr (obj_id, _)) ->
     let* field_list =
@@ -281,8 +292,20 @@ and interpret_runtime_object_fields obj_env fields =
           let key = Env.uniq_field_ident obj_id field in
           match Env.Map.find_opt key obj_env with
           | Some expr ->
-            let* (_, evaluated) = interpret obj_env expr in
-            ok ((field, evaluated) :: evaluated_fields)
+            if ObjectFields.mem key !evaluating_bindings then
+              Error.error_at pos (Error.Msg.type_cyclic_reference key)
+            else begin
+              evaluating_bindings := ObjectFields.add key !evaluating_bindings;
+              let result =
+                let* (_, evaluated) = interpret obj_env expr in
+                match evaluated with
+                | ObjectPtr (field_obj_id, _) when field_obj_id = obj_id ->
+                  Error.error_at pos (Error.Msg.type_cyclic_reference key)
+                | _ -> ok ((field, evaluated) :: evaluated_fields)
+              in
+              evaluating_bindings := ObjectFields.remove key !evaluating_bindings;
+              result
+            end
           | None -> acc
         )
         fields
@@ -444,7 +467,18 @@ and interpret_ident env pos varname =
   else begin
     evaluating_bindings := ObjectFields.add varname !evaluating_bindings;
     let result = Env.find_var varname env
-      ~succ:(interpret)
+      ~succ:(fun env expr ->
+        let* (env', evaluated) = interpret env expr in
+        match evaluated with
+        | RuntimeObject (obj_pos, obj_env, fields) ->
+          (match Env.find_opt "self" obj_env with
+          | Some (ObjectPtr (obj_id, _)) ->
+            let obj_env = Env.add_local varname (ObjectPtr (obj_id, ObjVarRef varname)) obj_env in
+            ok (env', RuntimeObject (obj_pos, obj_env, fields))
+          | _ -> ok (env', evaluated)
+          )
+        | _ -> ok (env', evaluated)
+      )
       ~err:(Error.error_at pos)
     in
     evaluating_bindings := ObjectFields.remove varname !evaluating_bindings;
