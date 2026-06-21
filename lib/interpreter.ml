@@ -148,10 +148,15 @@ and interpret_seq env exprs =
     interpret env expr >>= fun (env', _) ->
     interpret_seq env' exprs'
 
-and interpret_object env (pos, entries) =
+and interpret_object ?alias env (pos, entries) =
   let* obj_id = Env.Id.generate () in
   let obj_env = Env.add_local "self" (ObjectPtr (obj_id, Self)) env in
   let obj_env, _ = Env.add_local_when_not_present "$" (ObjectPtr (obj_id, TopLevel)) obj_env in
+  let obj_env =
+    match alias with
+    | Some varname -> Env.add_local varname (ObjectPtr (obj_id, ObjVarRef varname)) obj_env
+    | None -> obj_env
+  in
 
   (* First add locals and object fields to env *)
   let* (obj_env, fields) = List.fold_left
@@ -213,8 +218,13 @@ and interpret_object_field_access env (pos, scope, chain_exprs) =
         | Some (ObjectPtr _ as obj) -> ok (env, obj)
         | _ -> Error.error_at pos (Error.Msg.type_cyclic_reference varname)
       else
-        let* (env', expr) =
-          Env.find_var varname env ~succ:(interpret) ~err:(Error.error_at pos)
+        let* (env', expr) = Env.find_var varname env
+          ~succ:(fun env expr ->
+            match expr with
+            | ParsedObject (obj_pos, entries) -> interpret_object ~alias:varname env (obj_pos, entries)
+            | _ -> interpret env expr
+          )
+          ~err:(Error.error_at pos)
         in
         match expr with
         | ObjectPtr (obj_id, (Self | TopLevel)) ->
@@ -223,13 +233,7 @@ and interpret_object_field_access env (pos, scope, chain_exprs) =
              re-resolve Self/TopLevel in the current environment. *)
           ok (env', ObjectPtr (obj_id, ObjVarRef varname))
         | ObjectPtr _ as obj -> ok (env', obj)
-        | RuntimeObject (obj_pos, obj_env, fields) ->
-          (match Env.find_opt "self" obj_env with
-          | Some (ObjectPtr (obj_id, _)) ->
-            let obj_env = Env.add_local varname (ObjectPtr (obj_id, ObjVarRef varname)) obj_env in
-            ok (env', RuntimeObject (obj_pos, obj_env, fields))
-          | _ -> ok (env', RuntimeObject (obj_pos, obj_env, fields))
-          )
+        | RuntimeObject _ as obj -> ok (env', obj)
         | _ -> Error.error_at pos Error.Msg.must_be_object
   in
 
@@ -468,16 +472,12 @@ and interpret_ident env pos varname =
     evaluating_bindings := ObjectFields.add varname !evaluating_bindings;
     let result = Env.find_var varname env
       ~succ:(fun env expr ->
-        let* (env', evaluated) = interpret env expr in
-        match evaluated with
-        | RuntimeObject (obj_pos, obj_env, fields) ->
-          (match Env.find_opt "self" obj_env with
-          | Some (ObjectPtr (obj_id, _)) ->
-            let obj_env = Env.add_local varname (ObjectPtr (obj_id, ObjVarRef varname)) obj_env in
-            ok (env', RuntimeObject (obj_pos, obj_env, fields))
-          | _ -> ok (env', evaluated)
-          )
-        | _ -> ok (env', evaluated)
+        let* (env', evaluated) =
+          match expr with
+          | ParsedObject (obj_pos, entries) -> interpret_object ~alias:varname env (obj_pos, entries)
+          | _ -> interpret env expr
+        in
+        ok (env', evaluated)
       )
       ~err:(Error.error_at pos)
     in

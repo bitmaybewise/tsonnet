@@ -189,6 +189,10 @@
   1
 
 
+  $ tsonnet ../../samples/semantics/valid_object_var_shadowed_by_object_local.jsonnet
+  1
+
+
   $ tsonnet ../../samples/semantics/invalid_function_default_cycle.jsonnet
   ERROR: ../../samples/semantics/invalid_function_default_cycle.jsonnet:3:0 Invalid binary operation
   

@@ -312,12 +312,17 @@ and translate_lazy venv = function
   | Lazy expr -> translate venv expr
   | ty -> error (Error.Msg.type_invalid_expr (to_string ty))
 
-and translate_object venv pos entries =
+and translate_object ?alias venv pos entries =
   let* obj_id = Env.Id.generate () in
   let had_toplevel = Option.is_some (Env.find_opt "$" venv) in
   let obj_venv = Env.add_local "self" (TobjectPtr (obj_id, TobjectSelf)) venv in
   let obj_venv, _ =
     Env.add_local_when_not_present "$" (TobjectPtr (obj_id, TobjectTopLevel)) obj_venv
+  in
+  let obj_venv =
+    match alias with
+    | Some varname -> Env.add_local varname (TobjectPtr (obj_id, TobjectSelf)) obj_venv
+    | None -> obj_venv
   in
 
   (* Translate locals *)
@@ -374,16 +379,12 @@ and translate_object_field_access venv pos scope chain_exprs =
           ~succ:(fun venv ty ->
             match ty with
             | TobjectPtr _ as obj -> ok (venv, obj)
-            | TruntimeObject (obj_id, obj_venv, fields) ->
-              let obj_venv = Env.add_local varname (TobjectPtr (obj_id, TobjectSelf)) obj_venv in
-              ok (venv, TruntimeObject (obj_id, obj_venv, fields))
+            | TruntimeObject _ as obj -> ok (venv, obj)
             | Lazy expr ->
               with_translating (TranslatingVar varname) pos (fun () ->
-                match translate venv expr with
-                | Ok (venv', TruntimeObject (obj_id, obj_venv, fields)) ->
-                  let obj_venv = Env.add_local varname (TobjectPtr (obj_id, TobjectSelf)) obj_venv in
-                  ok (venv', TruntimeObject (obj_id, obj_venv, fields))
-                | result -> result
+                match expr with
+                | ParsedObject (obj_pos, entries) -> translate_object ~alias:varname venv obj_pos entries
+                | _ -> translate venv expr
               )
             | _ -> Error.error_at pos Error.Msg.must_be_object
           )
