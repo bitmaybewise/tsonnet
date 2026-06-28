@@ -84,7 +84,7 @@ let test_translate_object_preserves_toplevel_when_present () =
 
     (* Now create an environment with a top-level reference *)
     let* outer_id = Env.Id.generate () in
-    let toplevel_ptr = TobjectPtr (outer_id, TobjectTopLevel) in
+    let toplevel_ptr = TobjectPtr (outer_id, TobjectTopLevel, None) in
     let env_with_toplevel = Env.add_local "$" toplevel_ptr outer_env in
 
     (* Interpret an object that contains a nested inner object - this is where $ could be overridden *)

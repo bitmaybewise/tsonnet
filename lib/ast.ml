@@ -94,6 +94,7 @@ type expr =
   | FunctionCall of position * function_call
   | Closure of position * closure
   | If of position * expr * expr * expr option
+  | LazyDefault of string * (expr Env.Map.t [@opaque]) * (string * expr * expr option) list * expr
 
 and object_entry =
   | ObjectField of string * expr

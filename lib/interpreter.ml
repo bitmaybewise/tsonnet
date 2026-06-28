@@ -2,14 +2,24 @@ open Ast
 open Result
 open Syntax_sugar
 
-let evaluating_bindings = ref ObjectFields.empty
-
-let with_fresh_evaluating_bindings fn =
-  let saved_evaluating_bindings = !evaluating_bindings in
-  evaluating_bindings := ObjectFields.empty;
-  let result = fn () in
-  evaluating_bindings := saved_evaluating_bindings;
-  result
+(** Add all other parameters to the environment while forcing a default value.
+    Sibling defaults remain lazy so defaults can depend on each other on demand,
+    e.g. local x = 42; func(x=y, y=x)
+*)
+let add_default_params_to_env outer_env current_name params =
+  List.fold_left
+    (fun env (name, value, default_opt) ->
+      if name = current_name then env
+      else
+        let value =
+          match default_opt with
+          | Some default_expr -> LazyDefault (name, outer_env, params, default_expr)
+          | None -> value
+        in
+        Env.add_local name value env
+    )
+    outer_env
+    params
 
 (** [interpret expr] interprets and reduce the intermediate AST [expr] into a result AST. *)
 let rec interpret env expr =
@@ -31,6 +41,13 @@ let rec interpret env expr =
   | Closure _ -> ok (env, expr)
   | If (pos, cond_expr, then_expr, else_expr_opt) ->
       interpret_conditional env (pos, cond_expr, then_expr, else_expr_opt)
+  | LazyDefault (name, outer_env, params, default_expr) ->
+      interpret_lazy_default env name outer_env params default_expr
+
+and interpret_lazy_default env name outer_env params default_expr =
+  let default_env = add_default_params_to_env outer_env name params in
+  let* (_, evaluated) = interpret default_env default_expr in
+  ok (env, evaluated)
 
 and interpret_indexed_expr env (pos, varname, index_expr) =
   let* (env', index_expr') = interpret env index_expr in
@@ -132,17 +149,8 @@ and interpret_seq env exprs =
   | [expr] -> interpret env expr
   | (Local _ :: _) as exprs ->
     let (all_vars, body) = collect_locals exprs in
-    let local_names = List.map fst all_vars in
     let* (env', _) = interpret_local env all_vars in
-    (* Locals introduce a lexical scope. If a local shadows a binding that is
-       currently being evaluated, the body should resolve to the local binding
-       instead of reporting a cycle against the outer one. *)
-    let saved_evaluating_bindings = !evaluating_bindings in
-    List.iter
-      (fun name -> evaluating_bindings := ObjectFields.remove name !evaluating_bindings)
-      local_names;
     let result = interpret_seq env' body in
-    evaluating_bindings := saved_evaluating_bindings;
     result
   | (expr :: exprs') ->
     interpret env expr >>= fun (env', _) ->
@@ -213,28 +221,23 @@ and interpret_object_field_access env (pos, scope, chain_exprs) =
       )
     | ObjVarRef varname ->
       (* For variable references, look up and evaluate the variable *)
-      if ObjectFields.mem varname !evaluating_bindings then
-        match Env.find_opt "self" env with
-        | Some (ObjectPtr _ as obj) -> ok (env, obj)
-        | _ -> Error.error_at pos (Error.Msg.type_cyclic_reference varname)
-      else
-        let* (env', expr) = Env.find_var varname env
-          ~succ:(fun env expr ->
-            match expr with
-            | ParsedObject (obj_pos, entries) -> interpret_object ~alias:varname env (obj_pos, entries)
-            | _ -> interpret env expr
-          )
-          ~err:(Error.error_at pos)
-        in
-        match expr with
-        | ObjectPtr (obj_id, (Self | TopLevel)) ->
-          (* If the variable holds a Self/TopLevel reference, the obj_id
-             already captures which object it refers to. We don't need to
-             re-resolve Self/TopLevel in the current environment. *)
-          ok (env', ObjectPtr (obj_id, ObjVarRef varname))
-        | ObjectPtr _ as obj -> ok (env', obj)
-        | RuntimeObject _ as obj -> ok (env', obj)
-        | _ -> Error.error_at pos Error.Msg.must_be_object
+      let* (env', expr) = Env.find_var varname env
+        ~succ:(fun env expr ->
+          match expr with
+          | ParsedObject (obj_pos, entries) -> interpret_object ~alias:varname env (obj_pos, entries)
+          | _ -> interpret env expr
+        )
+        ~err:(Error.error_at pos)
+      in
+      match expr with
+      | ObjectPtr (obj_id, (Self | TopLevel)) ->
+        (* If the variable holds a Self/TopLevel reference, the obj_id
+           already captures which object it refers to. We don't need to
+           re-resolve Self/TopLevel in the current environment. *)
+        ok (env', ObjectPtr (obj_id, ObjVarRef varname))
+      | ObjectPtr _ as obj -> ok (env', obj)
+      | RuntimeObject _ as obj -> ok (env', obj)
+      | _ -> Error.error_at pos Error.Msg.must_be_object
   in
 
   List.fold_left
@@ -258,18 +261,9 @@ and interpret_object_field_access env (pos, scope, chain_exprs) =
       match field_expr with
       | String (pos, field) | Ident (pos, field) ->
         let* (obj_id, field_env) = get_obj_id in
-        let key = Env.uniq_field_ident obj_id field in
-        if ObjectFields.mem key !evaluating_bindings then
-          Error.error_at pos (Error.Msg.type_cyclic_reference key)
-        else begin
-          evaluating_bindings := ObjectFields.add key !evaluating_bindings;
-          let result = Env.get_obj_field field obj_id field_env
-            ~succ:(interpret)
-            ~err:(Error.error_at pos)
-          in
-          evaluating_bindings := ObjectFields.remove key !evaluating_bindings;
-          result
-        end
+        Env.get_obj_field field obj_id field_env
+          ~succ:(interpret)
+          ~err:(Error.error_at pos)
       | Number _ as index_expr ->
         (* Handle array/string indexing: prev_expr[number] *)
         Result.fold
@@ -296,20 +290,8 @@ and interpret_runtime_object_fields pos obj_env fields =
           let key = Env.uniq_field_ident obj_id field in
           match Env.Map.find_opt key obj_env with
           | Some expr ->
-            if ObjectFields.mem key !evaluating_bindings then
-              Error.error_at pos (Error.Msg.type_cyclic_reference key)
-            else begin
-              evaluating_bindings := ObjectFields.add key !evaluating_bindings;
-              let result =
-                let* (_, evaluated) = interpret obj_env expr in
-                match evaluated with
-                | ObjectPtr (field_obj_id, _) when field_obj_id = obj_id ->
-                  Error.error_at pos (Error.Msg.type_cyclic_reference key)
-                | _ -> ok ((field, evaluated) :: evaluated_fields)
-              in
-              evaluating_bindings := ObjectFields.remove key !evaluating_bindings;
-              result
-            end
+            let* (_, evaluated) = interpret obj_env expr in
+            ok ((field, evaluated) :: evaluated_fields)
           | None -> acc
         )
         fields
@@ -466,24 +448,16 @@ and interpret_in_op env pos field obj =
     Error.error_at pos Error.Msg.invalid_binary_op
 
 and interpret_ident env pos varname =
-  if ObjectFields.mem varname !evaluating_bindings then
-    Error.error_at pos (Error.Msg.type_cyclic_reference varname)
-  else begin
-    evaluating_bindings := ObjectFields.add varname !evaluating_bindings;
-    let result = Env.find_var varname env
-      ~succ:(fun env expr ->
-        let* (env', evaluated) =
-          match expr with
-          | ParsedObject (obj_pos, entries) -> interpret_object ~alias:varname env (obj_pos, entries)
-          | _ -> interpret env expr
-        in
-        ok (env', evaluated)
-      )
-      ~err:(Error.error_at pos)
-    in
-    evaluating_bindings := ObjectFields.remove varname !evaluating_bindings;
-    result
-  end
+  Env.find_var varname env
+    ~succ:(fun env expr ->
+      let* (env', evaluated) =
+        match expr with
+        | ParsedObject (obj_pos, entries) -> interpret_object ~alias:varname env (obj_pos, entries)
+        | _ -> interpret env expr
+      in
+      ok (env', evaluated)
+    )
+    ~err:(Error.error_at pos)
 
 and interpret_function_def env (pos, def) =
   let env' = Env.add_local def.name (FunctionDef (pos, def)) env in
@@ -528,32 +502,37 @@ and apply_function env pos def_params body call_args =
         (ok [])
         named_args
     in
-    let* bindings =
+    let* raw_bindings =
       List.fold_left
         (fun acc (index, (param_name, default)) ->
           let* bindings = acc in
           if index < num_positional
           then
-            ok (bindings @ [(param_name, List.nth evaluated_positional index)])
+            ok (bindings @ [(param_name, List.nth evaluated_positional index, None)])
           else
             match List.assoc_opt param_name evaluated_named with
-            | Some v -> ok (bindings @ [(param_name, v)])
+            | Some v -> ok (bindings @ [(param_name, v, None)])
             | None ->
               match default with
-              | Some default_expr -> ok (bindings @ [(param_name, default_expr)])
+              | Some default_expr -> ok (bindings @ [(param_name, default_expr, Some default_expr)])
               | None -> Error.error_at pos (Error.Msg.wrong_number_of_params num_def num_provided)
         )
         (ok [])
         (List.mapi (fun i p -> (i, p)) def_params)
     in
     let env' = List.fold_left
-      (fun env (k, v) -> Env.add_local k v env)
+      (fun param_env (param_name, value, default_expr_opt) ->
+        let value =
+          match default_expr_opt with
+          | Some default_expr -> LazyDefault (param_name, env, raw_bindings, default_expr)
+          | None -> value
+        in
+        Env.add_local param_name value param_env
+      )
       env
-      bindings
+      raw_bindings
     in
-    let* (_, result) = with_fresh_evaluating_bindings
-      (fun () -> interpret env' body)
-    in
+    let* (_, result) = interpret env' body in
     ok (env, result)
 
 and interpret_function_call env (pos, call) =
@@ -613,7 +592,7 @@ let rec deep_eval expr =
       fields
     in
     ok (EvaluatedObject (pos, List.rev evaluated_fields))
-  | RuntimeObject _ ->
+  | RuntimeObject _ | LazyDefault _ ->
     let* (_, evaluated) = interpret Env.empty expr in
     deep_eval evaluated
   | Ident _ | ParsedObject _ | ObjectPtr _ | ObjectFieldAccess _

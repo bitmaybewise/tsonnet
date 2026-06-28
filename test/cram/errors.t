@@ -93,7 +93,7 @@
 
 
   $ tsonnet ../../samples/errors/value_non_indexable.jsonnet
-  ERROR: ../../samples/errors/value_non_indexable.jsonnet:2:0 Int is a non indexable value
+  ERROR: ../../samples/errors/value_non_indexable.jsonnet:2:0 Number is a non indexable value
   
   2: answer[0]
      ^^^^^^^^^

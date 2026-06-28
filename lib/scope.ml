@@ -62,7 +62,7 @@ let rec _validate expr context =
   (* These variants are not produced by parsing source files. Scope validation
      runs before type checking/interpreting, so they only appear through
      internal or runtime, and have no source-level scope to check. *)
-  | Unit | EvaluatedObject _ | RuntimeObject _ | ObjectPtr _ -> ok ()
+  | Unit | EvaluatedObject _ | RuntimeObject _ | ObjectPtr _ | LazyDefault _ -> ok ()
 
 and validate_ident pos varname context =
   match (varname, context.in_object) with
