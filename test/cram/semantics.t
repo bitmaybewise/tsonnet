@@ -205,6 +205,10 @@
   1
 
 
+  $ tsonnet ../../samples/semantics/valid_function_body_uses_outer_local.jsonnet
+  1
+
+
   $ tsonnet ../../samples/semantics/invalid_closure_default_cycle.jsonnet
   ERROR: ../../samples/semantics/invalid_closure_default_cycle.jsonnet:3:0 Expected 1 argument(s), got 0
   
@@ -220,6 +224,15 @@
      ^^^^^^^^^^^^^^^^^^^^^^^^^
   ---
   1
+
+
+  $ tsonnet ../../samples/semantics/valid_closure_param_shadowing_unused_outer.jsonnet
+  WARNING: ../../samples/semantics/valid_closure_param_shadowing_unused_outer.jsonnet:1:0 Unused variable x
+  
+  1: local x = 1;
+     ^^^^^^^^^^^^
+  ---
+  2
 
 
   $ tsonnet ../../samples/semantics/invalid_recursive_function_call.jsonnet

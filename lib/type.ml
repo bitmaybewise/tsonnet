@@ -124,6 +124,11 @@ let rec to_string = function
       )
   | Tunresolved -> "<unresolved>"
 
+(* These helpers are only used for unused-local warnings. Cycle detection is
+   handled during translation via translating_bindings/with_translating. *)
+let exclude_bound_idents bound_names idents =
+  List.filter (fun ident -> not (List.mem ident bound_names)) idents
+
 let rec collect_free_idents = function
   | Ident (_, name) -> [name]
   | Array (_, exprs) -> List.concat_map collect_free_idents exprs
@@ -149,10 +154,31 @@ let rec collect_free_idents = function
       | Positional e -> collect_free_idents e
       | Named (_, e) -> collect_free_idents e
     ) call.args
-  | Closure (_, closure) -> collect_free_idents closure.body
+  | Closure (_, closure) ->
+    let param_names = List.map fst closure.params in
+    collect_param_defaults closure.params
+    @ exclude_bound_idents param_names (collect_free_idents closure.body)
+  | FunctionDef (_, def) ->
+    let bound_names = def.name :: List.map fst def.params in
+    collect_param_defaults def.params
+    @ exclude_bound_idents bound_names (collect_free_idents def.body)
+  | If (_, cond_expr, then_expr, else_expr_opt) ->
+    collect_free_idents cond_expr
+    @ collect_free_idents then_expr
+    @ (match else_expr_opt with
+      | Some else_expr -> collect_free_idents else_expr
+      | None -> [])
+  (* Terminal/runtime variants do not contain source-level free identifiers. *)
   | Unit | Null _ | Number _ | String _ | Bool _ | EvaluatedObject _
-  | RuntimeObject _ | ObjectPtr _ | FunctionDef _
-  | If _ -> []
+  | RuntimeObject _ | ObjectPtr _ -> []
+
+and collect_param_defaults params =
+  List.concat_map
+    (function
+    | _, Some expr -> collect_free_idents expr
+    | _, None -> []
+    )
+    params
 
 let reachable_bindings bindings initial_idents =
   let rec go visited = function
