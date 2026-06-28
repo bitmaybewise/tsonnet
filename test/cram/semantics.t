@@ -222,6 +222,38 @@
   1
 
 
+  $ tsonnet ../../samples/semantics/invalid_recursive_function_call.jsonnet
+  ERROR: ../../samples/semantics/invalid_recursive_function_call.jsonnet:1:12 Cyclic reference found for f
+  
+  1: local f() = f();
+     ^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/semantics/invalid_recursive_closure_call.jsonnet
+  ERROR: ../../samples/semantics/invalid_recursive_closure_call.jsonnet:1:21 Cyclic reference found for f
+  
+  1: local f = function() f();
+     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/semantics/invalid_mutual_recursive_function_call.jsonnet
+  ERROR: ../../samples/semantics/invalid_mutual_recursive_function_call.jsonnet:2:12 Cyclic reference found for f
+  
+  2: local g() = f();
+     ^^^^^^^^^^^^^^^^
+  [1]
+
+
+  $ tsonnet ../../samples/semantics/invalid_mutual_recursive_closure_call.jsonnet
+  ERROR: ../../samples/semantics/invalid_mutual_recursive_closure_call.jsonnet:2:21 Cyclic reference found for f
+  
+  2: local g = function() f();
+     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  [1]
+
+
   $ tsonnet ../../samples/semantics/invalid_function_call_positional_arg_cycle.jsonnet
   ERROR: ../../samples/semantics/invalid_function_call_positional_arg_cycle.jsonnet:2:13 Cyclic reference found for a
   

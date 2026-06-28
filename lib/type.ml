@@ -5,6 +5,7 @@ open Syntax_sugar
 type translation_key =
   | TranslatingVar of string
   | TranslatingObjField of Env.env_id * string
+  | TranslatingFunction of string
 
 module TranslationKeys = Set.Make(struct
   type t = translation_key
@@ -16,6 +17,7 @@ let translating_bindings = ref TranslationKeys.empty
 let string_of_translation_key = function
   | TranslatingVar varname -> varname
   | TranslatingObjField (obj_id, field) -> Env.uniq_field_ident obj_id field
+  | TranslatingFunction name -> name
 
 let with_translating key pos fn =
   if TranslationKeys.mem key !translating_bindings then
@@ -561,7 +563,9 @@ and translate_named_function_call venv (pos, name, args) =
         venv'
         resolved_params
       in
-      let* (_, body_type) = translate body_venv body_expr in
+      let* (_, body_type) =
+        with_translating (TranslatingFunction name) pos (fun () -> translate body_venv body_expr)
+      in
       let* resolved_return =
         match return_type with
         | Tunresolved ->
@@ -591,7 +595,8 @@ and translate_named_function_call venv (pos, name, args) =
     translate_named_function_call venv'' (pos, name, args)
   | Some (Tclosure { params = closure_params; body = body_expr }) ->
     let def_params = List.map (fun (name, _ty) -> (name, None)) closure_params in
-    translate_closure_call venv (pos, def_params, body_expr, args)
+    with_translating (TranslatingFunction name) pos
+      (fun () -> translate_closure_call venv (pos, def_params, body_expr, args))
   | _ ->
     Error.error_at pos (Error.Msg.var_not_found name)
 
