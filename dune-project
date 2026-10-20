@@ -32,9 +32,7 @@
     (>= 1.8.0)
     (< 2.0.0)))
   (qcheck-core
-   (and
-    :with-test
-    (= 0.25)))
+   (= 0.25))
   (qcheck-alcotest
    (and
     :with-test
@@ -43,8 +41,7 @@
    (and
     :with-test
     (= 0.36.0)))
-  (ppx_deriving_qcheck
-   (and :with-test))
+  ppx_deriving_qcheck
   ; (bisect_ppx
   ;  (and
   ;   :with-test

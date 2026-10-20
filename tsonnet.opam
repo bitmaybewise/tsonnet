@@ -14,10 +14,10 @@ depends: [
   "dune" {>= "3.21" & >= "3.21.0"}
   "menhir" {= "20240715"}
   "alcotest" {with-test & >= "1.8.0" & < "2.0.0"}
-  "qcheck-core" {with-test & = "0.25"}
+  "qcheck-core" {= "0.25"}
   "qcheck-alcotest" {with-test & = "0.25"}
   "ppxlib" {with-test & = "0.36.0"}
-  "ppx_deriving_qcheck" {with-test}
+  "ppx_deriving_qcheck"
   "yojson" {>= "2.2.2" & < "3.0.0"}
   "odoc" {with-doc}
 ]

@@ -68,6 +68,20 @@ module ObjectFields = struct
     Format.asprintf "%a" pp s
 end
 
+let gen_position : position QCheck.Gen.t = QCheck.Gen.return dummy_pos
+
+let gen_env_id : Env.env_id QCheck.Gen.t =
+  QCheck.Gen.map (fun i -> Env.EnvId i) QCheck.Gen.int
+
+let gen_expr_env_map = QCheck.Gen.return Env.Map.empty
+
+let gen_object_fields = QCheck.Gen.return ObjectFields.empty
+
+(* A bounded list generator: without this, the derived generator would use
+   [QCheck.Gen.list] (which sizes lists up to 10_000 elements) for every
+   recursive list field, blowing up the generated AST size exponentially. *)
+let gen_small_list elems = QCheck.Gen.list_size (QCheck.Gen.int_range 0 3) elems
+
 type expr =
   (* terminal variants can appear in any stage, representable in the final JSON *)
   | Unit
@@ -75,26 +89,26 @@ type expr =
   | Number of position * number
   | Bool of position * bool
   | String of position * string
-  | EvaluatedObject of position * (string * expr) list
+  | EvaluatedObject of position * ((string * expr) list [@gen (gen_small_list (QCheck.Gen.pair QCheck.Gen.string (gen_expr_sized (n / 2))))])
 
   (* interpreted variants were parsed, interpreted and transformed,
     but are not terminal, and are waiting to be transformed into terminal variants *)
   | Ident of position * string
-  | Array of position * expr list
-  | ParsedObject of position * object_entry list
-  | RuntimeObject of position * (expr Env.Map.t [@opaque]) * ObjectFields.t
-  | ObjectPtr of (Env.env_id [@opaque]) * object_scope
-  | ObjectFieldAccess of position * object_scope * expr list
+  | Array of position * (expr list [@gen (gen_small_list (gen_expr_sized (n / 2)))])
+  | ParsedObject of position * (object_entry list [@gen (gen_small_list (gen_object_entry_sized (n / 2)))])
+  | RuntimeObject of position * (expr Env.Map.t [@opaque] [@gen gen_expr_env_map]) * (ObjectFields.t [@gen gen_object_fields])
+  | ObjectPtr of (Env.env_id [@opaque] [@gen gen_env_id]) * object_scope
+  | ObjectFieldAccess of position * object_scope * (expr list [@gen (gen_small_list (gen_expr_sized (n / 2)))])
   | BinOp of position * bin_op * expr * expr
   | UnaryOp of position * unary_op * expr
-  | Local of position * (string * expr) list
-  | Seq of expr list
+  | Local of position * ((string * expr) list [@gen (gen_small_list (QCheck.Gen.pair QCheck.Gen.string (gen_expr_sized (n / 2))))])
+  | Seq of (expr list [@gen (gen_small_list (gen_expr_sized (n / 2)))])
   | IndexedExpr of position * string * expr
   | FunctionDef of position * function_def
   | FunctionCall of position * function_call
   | Closure of position * closure
   | If of position * expr * expr * expr option
-  | LazyDefault of string * (expr Env.Map.t [@opaque]) * (string * expr * expr option) list * expr
+  | LazyDefault of string * (expr Env.Map.t [@opaque] [@gen gen_expr_env_map]) * ((string * expr * expr option) list [@gen (gen_small_list (QCheck.Gen.triple QCheck.Gen.string (gen_expr_sized (n / 2)) (QCheck.Gen.option (gen_expr_sized (n / 2)))))]) * expr
 
 and object_entry =
   | ObjectField of string * expr
@@ -107,7 +121,7 @@ and object_scope =
 
 and function_def = {
   name: string;
-  params: (string * expr option) list;
+  params: ((string * expr option) list [@gen (gen_small_list (QCheck.Gen.pair QCheck.Gen.string (QCheck.Gen.option (gen_expr_sized (n / 2)))))]);
   body: expr;
 }
 and call_arg =
@@ -115,13 +129,13 @@ and call_arg =
   | Named of string * expr
 and function_call = {
   callee: expr;
-  args: call_arg list;
+  args: (call_arg list [@gen (gen_small_list (gen_call_arg_sized (n / 2)))]);
 }
 and closure = {
-  params: (string * expr option) list;
+  params: ((string * expr option) list [@gen (gen_small_list (QCheck.Gen.pair QCheck.Gen.string (QCheck.Gen.option (gen_expr_sized (n / 2)))))]);
   body: expr;
 }
-[@@deriving show]
+[@@deriving show, qcheck]
 
 let dummy_expr = Unit
 
