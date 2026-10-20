@@ -1,3 +1,5 @@
 (tests
  (names test_env test_interpreter test_type)
- (libraries tsonnet alcotest qcheck-core qcheck-alcotest))
+ (libraries tsonnet alcotest qcheck-core qcheck-alcotest)
+ (preprocess
+  (pps ppx_deriving_qcheck)))
